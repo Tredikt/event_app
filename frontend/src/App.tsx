@@ -9,6 +9,7 @@ import ProfilePage from '@/pages/ProfilePage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import MyEventsPage from '@/pages/MyEventsPage'
+import ToursPage from '@/pages/ToursPage'
 import ConnectTelegramPage from '@/pages/ConnectTelegramPage'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/telegram/connect" element={<PrivateRoute><ConnectTelegramPage /></PrivateRoute>} />
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/tours" element={<ToursPage />} />
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route
             path="/events/new"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Calendar, Users } from 'lucide-react'
+import { Calendar, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { eventsApi } from '@/api/events'
 import type { EventList } from '@/types'
@@ -28,11 +28,8 @@ export default function MyEventsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Мои события</h1>
-        <Link to="/events/new" className="btn-primary text-sm">
-          <Plus className="w-4 h-4" />Создать
-        </Link>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">

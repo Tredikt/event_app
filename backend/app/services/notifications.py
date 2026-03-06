@@ -103,6 +103,25 @@ async def notify_new_participant(organizer_telegram_id: Optional[int], organizer
         await send_email(organizer_email, f"Новый участник: {event_title}", html)
 
 
+async def notify_attendance_request(
+    telegram_id: Optional[int],
+    event_title: str,
+    event_id: int,
+    participant_names: list[str],
+    frontend_url: str,
+):
+    """Notify organizer that event is over and they should mark attendance."""
+    names_text = "\n".join(f"• {name}" for name in participant_names) if participant_names else "Участников не было"
+    text = (
+        f"✅ <b>Мероприятие завершено!</b>\n\n"
+        f"📌 <b>{event_title}</b>\n\n"
+        f"Участники ({len(participant_names)}):\n{names_text}\n\n"
+        f"👉 Отметьте, кто пришёл:\n{frontend_url}/events/{event_id}"
+    )
+    if telegram_id:
+        await send_telegram_message(telegram_id, text)
+
+
 async def notify_new_event_to_subscribers(
     *,
     event_id: int,

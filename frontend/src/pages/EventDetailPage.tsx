@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Users, Bell, BellOff, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X } from 'lucide-react'
+import { Calendar, MapPin, Users, Bell, BellOff, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { eventsApi } from '@/api/events'
 import { notificationsApi } from '@/api/notifications'
-import type { Event, Participant } from '@/types'
+import type { AttendanceParticipant, Event, Participant } from '@/types'
 import EventMap from '@/components/map/EventMap'
 import { useAuthStore } from '@/stores/authStore'
 import clsx from 'clsx'
@@ -26,6 +26,8 @@ export default function EventDetailPage() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [manualFrom, setManualFrom] = useState('')
   const manualInputRef = useRef<HTMLInputElement>(null)
+  const [attendance, setAttendance] = useState<AttendanceParticipant[]>([])
+  const [attendanceSaving, setAttendanceSaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -42,6 +44,11 @@ export default function EventDetailPage() {
     if (!event || !isAuthenticated || !user) return
     if (event.organizer.id === user.id) {
       eventsApi.getParticipants(event.id).then((r) => setParticipants(r.data))
+      const isPast = new Date(event.date) < new Date()
+      if (isPast) {
+        eventsApi.getAttendance(event.id).then((r) => setAttendance(r.data)).catch(() => {})
+        eventsApi.requestAttendanceNotification(event.id).catch(() => {})
+      }
     } else {
       eventsApi.myStatus(event.id)
         .then((r) => { setJoined(r.data.joined); setSubscribed(r.data.subscribed) })
@@ -65,7 +72,31 @@ export default function EventDetailPage() {
   }
 
   const isOrganizer = user?.id === event.organizer.id
+  const isPast = new Date(event.date) < new Date()
   const fillPercent = (event.participants_count / event.capacity) * 100
+
+  const toggleAttended = (userId: number) => {
+    setAttendance((prev) =>
+      prev.map((a) =>
+        a.user_id === userId ? { ...a, attended: a.attended === true ? false : true } : a
+      )
+    )
+  }
+
+  const saveAttendance = async () => {
+    setAttendanceSaving(true)
+    try {
+      const items = attendance
+        .filter((a) => a.attended !== null)
+        .map((a) => ({ user_id: a.user_id, attended: a.attended as boolean }))
+      await eventsApi.markAttendance(event.id, items)
+      toast.success('Посещаемость сохранена')
+    } catch {
+      toast.error('Ошибка сохранения')
+    } finally {
+      setAttendanceSaving(false)
+    }
+  }
 
   const handleJoin = async () => {
     if (!isAuthenticated) { navigate('/login'); return }
@@ -134,11 +165,25 @@ export default function EventDetailPage() {
     }
   }
 
-  const openYandexRoute = (fromLat: number, fromLon: number) => {
+  const openYandexRoute = (fromLat: number, fromLon: number, mode: 'auto' | 'taxi' = 'auto') => {
     const to = `${event!.latitude},${event!.longitude}`
     const from = `${fromLat},${fromLon}`
-    window.open(`https://yandex.ru/maps/?rtext=${from}~${to}&rtt=auto`, '_blank')
+    window.open(`https://yandex.ru/maps/?rtext=${from}~${to}&rtt=${mode}`, '_blank')
     setRouteModal(false)
+  }
+
+  const handleTaxi = () => {
+    if (!event?.latitude || !event?.longitude) return
+    if (!navigator.geolocation) {
+      // Open without origin — Yandex will ask
+      window.open(`https://yandex.ru/maps/?rtext=~${event.latitude},${event.longitude}&rtt=taxi`, '_blank')
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => openYandexRoute(pos.coords.latitude, pos.coords.longitude, 'taxi'),
+      () => window.open(`https://yandex.ru/maps/?rtext=~${event.latitude},${event.longitude}&rtt=taxi`, '_blank'),
+      { timeout: 5000 }
+    )
   }
 
   const handleGeoRoute = () => {
@@ -150,7 +195,7 @@ export default function EventDetailPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeoLoading(false)
-        openYandexRoute(pos.coords.latitude, pos.coords.longitude)
+        openYandexRoute(pos.coords.latitude, pos.coords.longitude, 'auto')
       },
       () => {
         setGeoLoading(false)
@@ -171,7 +216,7 @@ export default function EventDetailPage() {
       })
       const data = await res.json()
       if (!data.length) { toast.error('Адрес не найден'); return }
-      openYandexRoute(parseFloat(data[0].lat), parseFloat(data[0].lon))
+      openYandexRoute(parseFloat(data[0].lat), parseFloat(data[0].lon), 'auto')
     } catch {
       toast.error('Ошибка геокодирования')
     } finally {
@@ -241,24 +286,31 @@ export default function EventDetailPage() {
           </div>
 
           {(event.latitude && event.longitude) && (
-            <div className="card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-900">На карте</h3>
-                <button
-                  onClick={() => { setRouteModal(true); setManualFrom('') }}
-                  className="flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-700 transition-colors"
-                >
-                  <Navigation className="w-4 h-4" />
-                  Построить маршрут
-                </button>
+            <div className="card overflow-hidden">
+              <div className="px-5 pt-5 pb-3">
+                <h3 className="text-lg font-bold text-gray-900">Где вы будете</h3>
               </div>
               <EventMap
                 events={[{ ...event }] as any}
                 center={[event.latitude, event.longitude]}
-                zoom={15}
-                height="250px"
+                zoom={14}
+                height="240px"
                 interactive={false}
               />
+              <div className="p-4 space-y-2.5">
+                <button
+                  onClick={() => { setRouteModal(true); setManualFrom('') }}
+                  className="w-full bg-yellow-400 hover:bg-yellow-500 active:bg-yellow-600 text-yellow-900 font-semibold py-4 rounded-2xl text-base transition-colors"
+                >
+                  Проложить маршрут
+                </button>
+                <button
+                  onClick={handleTaxi}
+                  className="w-full btn-secondary text-sm"
+                >
+                  🚕 Добраться на такси
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -329,7 +381,7 @@ export default function EventDetailPage() {
             </button>
           </div>
 
-          {isOrganizer && participants.length > 0 && (
+          {isOrganizer && participants.length > 0 && !isPast && (
             <div className="card p-4">
               <h3 className="font-semibold mb-3 text-gray-900">
                 Участники ({participants.length}/{event.capacity})
@@ -353,12 +405,63 @@ export default function EventDetailPage() {
               </div>
             </div>
           )}
+
+          {isOrganizer && isPast && attendance.length > 0 && (
+            <div className="card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ClipboardList className="w-4 h-4 text-blue-700" />
+                <h3 className="font-semibold text-gray-900">Отметить посещаемость</h3>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">Отметьте, кто пришёл. Рейтинг не пришедших снизится на 0.1</p>
+              <div className="space-y-2">
+                {attendance.map((a) => (
+                  <div
+                    key={a.user_id}
+                    onClick={() => toggleAttended(a.user_id)}
+                    className={clsx(
+                      'flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors',
+                      a.attended === true
+                        ? 'bg-green-50 border border-green-200'
+                        : a.attended === false
+                        ? 'bg-red-50 border border-red-200'
+                        : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+                    )}
+                  >
+                    {a.user.avatar_url ? (
+                      <img src={a.user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0">
+                        {a.user.first_name[0]}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{a.user.first_name} {a.user.last_name}</p>
+                      <p className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</p>
+                    </div>
+                    <div className={clsx(
+                      'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                      a.attended === true ? 'bg-green-500 text-white' : a.attended === false ? 'bg-red-400 text-white' : 'bg-gray-300 text-gray-500'
+                    )}>
+                      {a.attended === true ? '✓' : a.attended === false ? '✗' : '?'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={saveAttendance}
+                disabled={attendanceSaving || attendance.every((a) => a.attended === null)}
+                className="w-full btn-primary text-sm mt-3 disabled:opacity-50"
+              >
+                {attendanceSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Сохранить'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Route modal */}
       {routeModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRouteModal(false)} />
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">

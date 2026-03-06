@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { MapPin, Loader, Camera, X } from 'lucide-react'
 import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
+import IosDatePicker from '@/components/ui/IosDatePicker'
 
 interface Props {
   defaultValues?: Partial<CreateEventData>
@@ -14,7 +15,7 @@ interface Props {
 }
 
 export default function EventForm({ defaultValues, defaultImageUrl, categories, onSubmit, submitLabel }: Props) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues } = useForm<CreateEventData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues, control } = useForm<CreateEventData>({
     defaultValues: defaultValues || { capacity: 10 },
   })
 
@@ -184,10 +185,17 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Дата и время *</label>
-          <input
-            type="datetime-local"
-            {...register('date', { required: 'Обязательное поле' })}
-            className="input w-full"
+          <Controller
+            name="date"
+            control={control}
+            rules={{ required: 'Обязательное поле' }}
+            render={({ field }) => (
+              <IosDatePicker
+                value={field.value || ''}
+                onChange={field.onChange}
+                error={!!errors.date}
+              />
+            )}
           />
           {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
         </div>
@@ -264,6 +272,20 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
           selectedPin={mapPin}
         />
       </div>
+
+      {/* Tour toggle */}
+      <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer group">
+        <span className="text-2xl">🏕️</span>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900">Выезд загород / тур</p>
+          <p className="text-xs text-gray-500">Мероприятие проводится за городом</p>
+        </div>
+        <input
+          type="checkbox"
+          {...register('is_tour')}
+          className="w-4 h-4 accent-blue-700"
+        />
+      </label>
 
       <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
         {isSubmitting ? <><Loader className="w-4 h-4 animate-spin" />Сохранение...</> : submitLabel}

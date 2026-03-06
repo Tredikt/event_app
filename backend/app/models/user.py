@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Enum as SAEnum, String
+from sqlalchemy import BigInteger, Boolean, Enum as SAEnum, Float, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,6 +29,7 @@ class User(Base):
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
     telegram_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    rating: Mapped[float] = mapped_column(Float, default=5.0, server_default="5.0")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     organized_events: Mapped[list["Event"]] = relationship("Event", back_populates="organizer")

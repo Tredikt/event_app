@@ -13,6 +13,7 @@ from app.core.database import get_db, AsyncSessionLocal
 from app.core.deps import get_current_user
 from app.models.event import (
     Event,
+    EventAttendance,
     EventCategory,
     EventParticipant,
     EventStatus,
@@ -21,6 +22,8 @@ from app.models.event import (
 )
 from app.models.user import User
 from app.schemas.event import (
+    AttendanceIn,
+    AttendanceParticipantOut,
     CategoryOut,
     EventCreate,
     EventListOut,
@@ -32,14 +35,18 @@ from app.schemas.event import (
 )
 from app.services.event_notifications import dispatch_new_event_notifications
 from app.services.file_service import save_event_image
-from app.services.notifications import notify_event_update, notify_new_participant
+from app.services.notifications import notify_attendance_request, notify_event_update, notify_new_participant
 
 router = APIRouter(prefix="/events", tags=["events"])
+
+_TARGET_CATEGORIES = {"Спорт", "Развлечения", "Творчество", "Обучение", "Отдых"}
 
 
 @router.get("/categories", response_model=list[CategoryOut])
 async def get_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(EventCategory))
+    result = await db.execute(
+        select(EventCategory).where(EventCategory.name.in_(_TARGET_CATEGORIES))
+    )
     return result.scalars().all()
 
 
@@ -50,6 +57,7 @@ async def list_events(
     date_to: Optional[datetime] = Query(None),
     only_available: bool = Query(False),
     search: Optional[str] = Query(None),
+    is_tour: Optional[bool] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
@@ -75,6 +83,8 @@ async def list_events(
                 Event.address.ilike(f"%{search}%"),
             )
         )
+    if is_tour is not None:
+        query = query.where(Event.is_tour == is_tour)
     query = query.order_by(Event.date.asc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
@@ -443,3 +453,139 @@ async def my_joined_events(
         .order_by(Event.date.asc())
     )
     return result.scalars().all()
+
+
+@router.post("/{event_id}/attendance/notify", status_code=status.HTTP_200_OK)
+async def request_attendance_notification(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send Telegram notification to organizer with participant list (once per event)."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только организатор")
+    if event.date > datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Мероприятие ещё не завершилось")
+    if event.attendance_notified:
+        return {"message": "Уведомление уже отправлено"}
+
+    participants_result = await db.execute(
+        select(EventParticipant)
+        .options(selectinload(EventParticipant.user))
+        .where(and_(
+            EventParticipant.event_id == event_id,
+            EventParticipant.status == ParticipantStatus.registered,
+        ))
+    )
+    participants = participants_result.scalars().all()
+    names = [f"{p.user.first_name} {p.user.last_name}" for p in participants]
+
+    from app.core.config import settings as cfg
+    await notify_attendance_request(
+        current_user.telegram_id,
+        event.title,
+        event_id,
+        names,
+        cfg.FRONTEND_URL,
+    )
+
+    event.attendance_notified = True
+    await db.commit()
+    return {"message": "Уведомление отправлено"}
+
+
+@router.get("/{event_id}/attendance", response_model=list[AttendanceParticipantOut])
+async def get_attendance(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return participants with their attendance status (organizer only)."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только организатор")
+
+    participants_result = await db.execute(
+        select(EventParticipant)
+        .options(selectinload(EventParticipant.user))
+        .where(and_(
+            EventParticipant.event_id == event_id,
+            EventParticipant.status == ParticipantStatus.registered,
+        ))
+        .order_by(EventParticipant.joined_at.asc())
+    )
+    participants = participants_result.scalars().all()
+
+    attendance_result = await db.execute(
+        select(EventAttendance).where(EventAttendance.event_id == event_id)
+    )
+    attendance_map = {a.user_id: a.attended for a in attendance_result.scalars().all()}
+
+    return [
+        AttendanceParticipantOut(
+            user_id=p.user_id,
+            user=p.user,
+            attended=attendance_map.get(p.user_id),
+        )
+        for p in participants
+    ]
+
+
+@router.post("/{event_id}/attendance", status_code=status.HTTP_200_OK)
+async def mark_attendance(
+    event_id: int,
+    data: AttendanceIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Organizer submits attendance; no-shows get rating -0.1."""
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только организатор")
+    if event.date > datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Мероприятие ещё не завершилось")
+
+    # Load existing attendance records
+    existing_result = await db.execute(
+        select(EventAttendance).where(EventAttendance.event_id == event_id)
+    )
+    existing_map: dict[int, EventAttendance] = {a.user_id: a for a in existing_result.scalars().all()}
+
+    for item in data.items:
+        prev = existing_map.get(item.user_id)
+        if prev is None:
+            # New record
+            record = EventAttendance(
+                event_id=event_id,
+                user_id=item.user_id,
+                attended=item.attended,
+                marked_at=datetime.utcnow(),
+            )
+            db.add(record)
+            if not item.attended:
+                user = await db.get(User, item.user_id)
+                if user:
+                    user.rating = max(1.0, round(user.rating - 0.1, 2))
+        else:
+            # Update — revert previous rating change if status flipped
+            if prev.attended != item.attended:
+                user = await db.get(User, item.user_id)
+                if user:
+                    if not item.attended and prev.attended:
+                        # was present, now absent → penalise
+                        user.rating = max(1.0, round(user.rating - 0.1, 2))
+                    elif item.attended and not prev.attended:
+                        # was absent, now present → restore
+                        user.rating = min(10.0, round(user.rating + 0.1, 2))
+            prev.attended = item.attended
+            prev.marked_at = datetime.utcnow()
+
+    await db.commit()
+    return {"message": "Посещаемость сохранена"}

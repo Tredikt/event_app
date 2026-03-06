@@ -44,6 +44,7 @@ class UserPublic(BaseModel):
     gender: GenderEnum
     avatar_url: Optional[str] = None
     telegram_username: Optional[str] = None
+    rating: float = 5.0
 
     model_config = {"from_attributes": True}
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { eventsApi, type CreateEventData } from '@/api/events'
@@ -9,6 +9,8 @@ import { useAuthStore } from '@/stores/authStore'
 
 export default function CreateEventPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isTour = searchParams.get('tour') === '1'
   const { user } = useAuthStore()
   const [categories, setCategories] = useState<Category[]>([])
 
@@ -39,9 +41,16 @@ export default function CreateEventPage() {
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" />Назад
       </button>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Создать мероприятие</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {isTour ? 'Создать тур' : 'Создать мероприятие'}
+      </h1>
       <div className="card p-6">
-        <EventForm categories={categories} onSubmit={handleSubmit} submitLabel="Создать мероприятие" />
+        <EventForm
+          categories={categories}
+          onSubmit={handleSubmit}
+          submitLabel={isTour ? 'Создать тур' : 'Создать мероприятие'}
+          defaultValues={{ capacity: 10, is_tour: isTour }}
+        />
       </div>
     </div>
   )

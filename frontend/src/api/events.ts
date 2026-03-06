@@ -1,5 +1,5 @@
 import api from './client'
-import type { Event, EventList, Category, Participant, Subscription } from '@/types'
+import type { AttendanceParticipant, Event, EventList, Category, Participant, Subscription } from '@/types'
 
 export interface EventFilters {
   category_id?: number
@@ -7,6 +7,7 @@ export interface EventFilters {
   date_to?: string
   only_available?: boolean
   search?: string
+  is_tour?: boolean
   skip?: number
   limit?: number
 }
@@ -20,6 +21,7 @@ export interface CreateEventData {
   latitude?: number
   longitude?: number
   category_id: number
+  is_tour?: boolean
 }
 
 export const eventsApi = {
@@ -58,4 +60,13 @@ export const eventsApi = {
   myOrganized: () => api.get<EventList[]>('/events/my/organized'),
 
   myJoined: () => api.get<EventList[]>('/events/my/joined'),
+
+  requestAttendanceNotification: (id: number) =>
+    api.post(`/events/${id}/attendance/notify`),
+
+  getAttendance: (id: number) =>
+    api.get<AttendanceParticipant[]>(`/events/${id}/attendance`),
+
+  markAttendance: (id: number, items: { user_id: number; attended: boolean }[]) =>
+    api.post(`/events/${id}/attendance`, { items }),
 }

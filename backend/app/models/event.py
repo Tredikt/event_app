@@ -48,6 +48,8 @@ class Event(Base):
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[EventStatus] = mapped_column(SAEnum(EventStatus), default=EventStatus.active)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_tour: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    attendance_notified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("event_categories.id"))
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -56,6 +58,7 @@ class Event(Base):
     category: Mapped["EventCategory"] = relationship("EventCategory", back_populates="events")
     participants: Mapped[list["EventParticipant"]] = relationship("EventParticipant", back_populates="event")
     subscriptions: Mapped[list["EventSubscription"]] = relationship("EventSubscription", back_populates="event")
+    attendance_records: Mapped[list["EventAttendance"]] = relationship("EventAttendance", back_populates="event")
 
     @property
     def is_full(self) -> bool:
@@ -89,3 +92,16 @@ class EventSubscription(Base):
 
     event: Mapped["Event"] = relationship("Event", back_populates="subscriptions")
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")
+
+
+class EventAttendance(Base):
+    __tablename__ = "event_attendance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    attended: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    marked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    event: Mapped["Event"] = relationship("Event", back_populates="attendance_records")
+    user: Mapped["User"] = relationship("User")

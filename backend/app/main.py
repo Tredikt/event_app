@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import text
+
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — register all models with Base.metadata
@@ -28,35 +30,69 @@ logger = logging.getLogger(__name__)
 
 async def seed_categories():
     from app.core.database import AsyncSessionLocal
-    from sqlalchemy import select
-    from app.models.event import EventCategory
+    from sqlalchemy import select, func
+    from app.models.event import Event, EventCategory
 
     categories = [
         {"name": "Спорт", "icon": "🏃", "color": "#FF6B35"},
+        {"name": "Развлечения", "icon": "🎉", "color": "#3B82F6"},
         {"name": "Творчество", "icon": "🎨", "color": "#A855F7"},
-        {"name": "Настолки", "icon": "🎲", "color": "#3B82F6"},
         {"name": "Обучение", "icon": "📚", "color": "#10B981"},
-        {"name": "Музыка", "icon": "🎵", "color": "#F59E0B"},
-        {"name": "Кино", "icon": "🎬", "color": "#EF4444"},
-        {"name": "Еда", "icon": "🍕", "color": "#F97316"},
-        {"name": "Технологии", "icon": "💻", "color": "#6366F1"},
-        {"name": "Природа", "icon": "🌿", "color": "#22C55E"},
-        {"name": "Другое", "icon": "✨", "color": "#64748B"},
+        {"name": "Отдых", "icon": "🌿", "color": "#22C55E"},
     ]
+    target_names = {c["name"] for c in categories}
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(EventCategory))
         existing = result.scalars().all()
-        if not existing:
-            for cat in categories:
+        existing_by_name = {c.name: c for c in existing}
+
+        # Add missing target categories
+        for cat in categories:
+            if cat["name"] not in existing_by_name:
                 db.add(EventCategory(**cat))
-            await db.commit()
-            logger.info("Categories seeded")
+
+        # Remove obsolete categories that have no events
+        for cat in existing:
+            if cat.name not in target_names:
+                count_result = await db.execute(
+                    select(func.count()).where(Event.category_id == cat.id)
+                )
+                if count_result.scalar() == 0:
+                    await db.delete(cat)
+
+        await db.commit()
+        logger.info("Categories synced")
+
+
+async def migrate_schema():
+    """Apply incremental schema changes that create_all doesn't handle."""
+    async with engine.begin() as conn:
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_tour BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS attendance_notified BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS rating FLOAT NOT NULL DEFAULT 5.0"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS event_attendance (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                attended BOOLEAN,
+                marked_at TIMESTAMP,
+                UNIQUE(event_id, user_id)
+            )
+        """))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await migrate_schema()
     await seed_categories()
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "avatars"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "events"), exist_ok=True)

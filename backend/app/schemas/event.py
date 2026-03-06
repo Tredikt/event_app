@@ -27,6 +27,7 @@ class EventCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     category_id: int
+    is_tour: bool = False
 
 
 class EventUpdate(BaseModel):
@@ -39,6 +40,7 @@ class EventUpdate(BaseModel):
     longitude: Optional[float] = None
     category_id: Optional[int] = None
     status: Optional[EventStatus] = None
+    is_tour: Optional[bool] = None
 
 
 class EventOut(BaseModel):
@@ -53,6 +55,7 @@ class EventOut(BaseModel):
     longitude: Optional[float] = None
     status: EventStatus
     image_url: Optional[str] = None
+    is_tour: bool
     category: CategoryOut
     organizer: UserPublic
     created_at: datetime
@@ -72,6 +75,7 @@ class EventListOut(BaseModel):
     longitude: Optional[float] = None
     status: EventStatus
     image_url: Optional[str] = None
+    is_tour: bool
     category: CategoryOut
     organizer: UserPublic
     is_full: bool
@@ -98,6 +102,23 @@ class SubscriptionOut(BaseModel):
     event_id: int
     notify_telegram: bool
     notify_email: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AttendanceItemIn(BaseModel):
+    user_id: int
+    attended: bool
+
+
+class AttendanceIn(BaseModel):
+    items: list[AttendanceItemIn]
+
+
+class AttendanceParticipantOut(BaseModel):
+    user_id: int
+    user: UserPublic
+    attended: Optional[bool] = None
 
     model_config = {"from_attributes": True}
 

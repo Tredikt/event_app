@@ -16,6 +16,7 @@ export interface UserPublic {
   gender: Gender
   avatar_url: string | null
   telegram_username: string | null
+  rating: number
 }
 
 export interface UserProfile extends UserPublic {
@@ -37,6 +38,7 @@ export interface Event {
   longitude: number | null
   status: EventStatus
   image_url: string | null
+  is_tour: boolean
   category: Category
   organizer: UserPublic
   created_at: string
@@ -54,6 +56,7 @@ export interface EventList {
   longitude: number | null
   status: EventStatus
   image_url: string | null
+  is_tour: boolean
   category: Category
   organizer: UserPublic
   is_full: boolean
@@ -64,6 +67,12 @@ export interface Participant {
   user: UserPublic
   status: ParticipantStatus
   joined_at: string
+}
+
+export interface AttendanceParticipant {
+  user_id: number
+  user: UserPublic
+  attended: boolean | null
 }
 
 export interface Subscription {
