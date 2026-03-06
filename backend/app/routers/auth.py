@@ -54,10 +54,13 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.phone == data.phone))
+    if "@" in data.phone:
+        result = await db.execute(select(User).where(User.email == data.phone))
+    else:
+        result = await db.execute(select(User).where(User.phone == data.phone))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Неверный телефон или пароль")
+        raise HTTPException(status_code=401, detail="Неверный телефон/email или пароль")
 
     token = create_access_token({"sub": str(user.id)})
     return Token(access_token=token, user=UserProfile.model_validate(user))

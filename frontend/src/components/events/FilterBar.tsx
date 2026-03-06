@@ -40,8 +40,8 @@ export default function FilterBar({
           className={clsx(
             'badge transition-colors cursor-pointer border',
             selectedCategory === null
-              ? 'bg-sky-500 text-white border-sky-500'
-              : 'bg-white text-gray-600 border-gray-200 hover:border-sky-300'
+              ? 'bg-blue-700 text-white border-blue-700'
+              : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
           )}
         >
           Все

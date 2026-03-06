@@ -27,10 +27,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-blue-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-sky-500 rounded-2xl mb-4 shadow-lg">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-700 rounded-2xl mb-4 shadow-lg">
             <MapPin className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Войти в Communicate</h1>
@@ -40,11 +40,11 @@ export default function LoginPage() {
         <div className="card p-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Номер телефона</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Телефон или Email</label>
               <input
-                {...register('phone', { required: 'Введите номер телефона' })}
+                {...register('phone', { required: 'Введите телефон или email' })}
                 className="input"
-                placeholder="+7 999 000 00 00"
+                placeholder="+7 999 000 00 00 или your@email.com"
               />
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Нет аккаунта?{' '}
-            <Link to="/register" className="text-sky-600 hover:underline font-medium">Зарегистрироваться</Link>
+            <Link to="/register" className="text-blue-700 hover:underline font-medium">Зарегистрироваться</Link>
           </p>
         </div>
       </div>

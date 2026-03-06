@@ -1,7 +1,7 @@
-version: '3.9'
+version: "3.8"
 
 services:
-  postgres:
+  postgres_event_app_mvp:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  redis_event_app_mvp:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
@@ -33,17 +33,18 @@ services:
     restart: unless-stopped
     env_file: ./.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_event_app_mvp:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6479/0
     volumes:
       - ./backend/uploads:/app/uploads
     ports:
       - "${BACKEND_PORT}:8000"
     depends_on:
-      postgres:
+      postgres_event_app_mvp:
         condition: service_healthy
-      redis:
+      redis_event_app_mvp:
         condition: service_started
+
 
   frontend:
     build:

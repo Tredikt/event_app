@@ -20,6 +20,26 @@ from app.services.notifications import send_telegram_message
 
 logger = logging.getLogger(__name__)
 
+
+async def _get_categories_text() -> str:
+    """Return formatted list of event categories from DB."""
+    from app.models.event import EventCategory
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(EventCategory).order_by(EventCategory.id))
+            cats = result.scalars().all()
+        if not cats:
+            return ""
+        lines = "\n".join(f"{c.icon} {c.name}" for c in cats)
+        return (
+            f"📋 <b>Категории мероприятий:</b>\n\n{lines}\n\n"
+            f"Перейди на сайт, чтобы найти события по интересам!"
+        )
+    except Exception as exc:
+        logger.warning("Could not fetch categories: %s", exc)
+        return ""
+
+
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 # token -> user_id  (use Redis in production)
@@ -103,20 +123,28 @@ async def telegram_webhook(request: Request):
         else:
             await send_telegram_message(
                 chat_id,
-                "👋 <b>Привет! Это бот платформы Communicate.</b>\n\n"
-                "Здесь вы получаете уведомления о мероприятиях.\n\n"
-                "📋 <b>Доступные команды:</b>\n"
+                "👋 <b>Привет! Ты попал в Communicate.</b>\n\n"
+                "Это платформа для поиска мероприятий рядом с тобой:\n"
+                "• 📍 Находи события на карте\n"
+                "• ✅ Записывайся на мероприятия\n"
+                "• 🔔 Получай уведомления о новых событиях\n\n"
+                "Чтобы начать — зарегистрируйся на сайте и привяжи этот Telegram в профиле.\n\n"
+                "📋 <b>Команды:</b>\n"
                 "/stop — Отключить уведомления\n"
                 "/on — Включить уведомления\n"
-                "/help — Помощь\n\n"
-                "Для привязки аккаунта перейдите в настройки профиля на сайте.",
+                "/help — Помощь",
             )
+            cats_text = await _get_categories_text()
+            if cats_text:
+                await send_telegram_message(chat_id, cats_text)
 
     elif text == "/help":
         await send_telegram_message(
             chat_id,
             "📋 <b>Команды бота:</b>\n\n"
             "/start — Начало работы\n"
+            "/stop — Отключить уведомления\n"
+            "/on — Включить уведомления\n"
             "/help — Помощь\n\n"
             "Для привязки аккаунта перейдите в настройки профиля на сайте.",
         )
@@ -184,14 +212,20 @@ async def _ptb_message_handler(update: Update, context) -> None:
         else:
             await send_telegram_message(
                 chat_id,
-                "👋 <b>Привет! Это бот платформы Communicate.</b>\n\n"
-                "Здесь вы получаете уведомления о мероприятиях.\n\n"
-                "📋 <b>Доступные команды:</b>\n"
+                "👋 <b>Привет! Ты попал в Communicate.</b>\n\n"
+                "Это платформа для поиска мероприятий рядом с тобой:\n"
+                "• 📍 Находи события на карте\n"
+                "• ✅ Записывайся на мероприятия\n"
+                "• 🔔 Получай уведомления о новых событиях\n\n"
+                "Чтобы начать — зарегистрируйся на сайте и привяжи этот Telegram в профиле.\n\n"
+                "📋 <b>Команды:</b>\n"
                 "/stop — Отключить уведомления\n"
                 "/on — Включить уведомления\n"
-                "/help — Помощь\n\n"
-                "Для привязки аккаунта перейдите в настройки профиля на сайте.",
+                "/help — Помощь",
             )
+            cats_text = await _get_categories_text()
+            if cats_text:
+                await send_telegram_message(chat_id, cats_text)
 
     elif text in ("/stop", "/off"):
         async with AsyncSessionLocal() as db:

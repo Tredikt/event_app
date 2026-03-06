@@ -110,14 +110,6 @@ export default function NotificationSettingsPanel() {
             disabled={!user?.telegram_id}
             onChange={(v) => updateSetting('telegram_enabled', v)}
           />
-          <Toggle
-            label="Email"
-            description="Уведомления на почту"
-            icon="📧"
-            value={settings.email_enabled}
-            disabled={!user?.email}
-            onChange={(v) => updateSetting('email_enabled', v)}
-          />
         </div>
 
         <div className="border-t border-gray-100 mt-4 pt-4 space-y-3">
@@ -142,7 +134,7 @@ export default function NotificationSettingsPanel() {
       {/* Category subscriptions */}
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Tag className="w-4 h-4 text-sky-500" />
+          <Tag className="w-4 h-4 text-blue-700" />
           <h3 className="font-semibold text-gray-900">Подписки на категории</h3>
         </div>
         <p className="text-sm text-gray-500 mb-4">
@@ -176,7 +168,7 @@ export default function NotificationSettingsPanel() {
       {/* Organizer subscriptions */}
       <div className="card p-5">
         <div className="flex items-center gap-2 mb-4">
-          <UserCheck className="w-4 h-4 text-sky-500" />
+          <UserCheck className="w-4 h-4 text-blue-700" />
           <h3 className="font-semibold text-gray-900">Организаторы</h3>
         </div>
         {orgSubs.length === 0 ? (
@@ -190,7 +182,7 @@ export default function NotificationSettingsPanel() {
                 {sub.organizer.avatar_url ? (
                   <img src={sub.organizer.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-sky-100 flex items-center justify-center text-sky-600 font-semibold flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold flex-shrink-0">
                     {sub.organizer.first_name[0]}
                   </div>
                 )}
@@ -240,7 +232,7 @@ function Toggle({
         onClick={() => !disabled && onChange(!value)}
         className={clsx(
           'relative flex-shrink-0 w-10 h-5 rounded-full transition-colors duration-200 mt-0.5',
-          value && !disabled ? 'bg-sky-500' : 'bg-gray-200'
+          value && !disabled ? 'bg-blue-700' : 'bg-gray-200'
         )}
       >
         <span

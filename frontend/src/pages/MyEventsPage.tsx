@@ -64,8 +64,8 @@ export default function MyEventsPage() {
           </p>
           <p className="text-sm mt-1">
             {tab === 'organized'
-              ? <Link to="/events/new" className="text-sky-500 hover:underline">Создайте первое мероприятие</Link>
-              : <Link to="/" className="text-sky-500 hover:underline">Найдите что-нибудь интересное</Link>}
+              ? <Link to="/events/new" className="text-blue-700 hover:underline">Создайте первое мероприятие</Link>
+              : <Link to="/" className="text-blue-700 hover:underline">Найдите что-нибудь интересное</Link>}
           </p>
         </div>
       ) : (

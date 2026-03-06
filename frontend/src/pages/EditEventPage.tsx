@@ -19,9 +19,12 @@ export default function EditEventPage() {
 
   if (!event) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-gray-400">Загрузка...</div>
 
-  const handleSubmit = async (data: CreateEventData) => {
+  const handleSubmit = async (data: CreateEventData, imageFile?: File) => {
     try {
       await eventsApi.update(Number(id), data)
+      if (imageFile) {
+        try { await eventsApi.uploadImage(Number(id), imageFile) } catch {}
+      }
       toast.success('Мероприятие обновлено')
       navigate(`/events/${id}`)
     } catch (e: any) {
@@ -38,6 +41,7 @@ export default function EditEventPage() {
       <div className="card p-6">
         <EventForm
           categories={categories}
+          defaultImageUrl={event.image_url ?? undefined}
           defaultValues={{
             title: event.title,
             description: event.description,

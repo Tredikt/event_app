@@ -21,11 +21,14 @@ export default function CreateEventPage() {
     eventsApi.getCategories().then((r) => setCategories(r.data))
   }, [])
 
-  const handleSubmit = async (data: CreateEventData) => {
+  const handleSubmit = async (data: CreateEventData, imageFile?: File) => {
     try {
       const { data: event } = await eventsApi.create(data)
+      if (imageFile) {
+        try { await eventsApi.uploadImage(event.id, imageFile) } catch {}
+      }
       toast.success('Мероприятие создано!')
-      navigate(`/events/${event.id}`)
+      navigate(`/events/${event.id}`, { replace: true })
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'Ошибка создания')
     }

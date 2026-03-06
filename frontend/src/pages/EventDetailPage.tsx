@@ -213,15 +213,15 @@ export default function EventDetailPage() {
 
               <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar className="w-4 h-4 text-sky-500 flex-shrink-0" />
+                  <Calendar className="w-4 h-4 text-blue-700 flex-shrink-0" />
                   {format(new Date(event.date), "d MMMM yyyy, HH:mm", { locale: ru })}
                 </div>
                 <div className="flex items-start gap-2 text-sm text-gray-600">
-                  <MapPin className="w-4 h-4 text-sky-500 flex-shrink-0 mt-0.5" />
+                  <MapPin className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
                   {event.address}
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users className="w-4 h-4 text-sky-500 flex-shrink-0" />
+                  <Users className="w-4 h-4 text-blue-700 flex-shrink-0" />
                   {event.participants_count} из {event.capacity} мест занято
                   {event.is_full && <span className="text-red-500 font-medium">• Мест нет</span>}
                 </div>
@@ -229,7 +229,7 @@ export default function EventDetailPage() {
 
               <div className="h-2 bg-gray-100 rounded-full mb-5">
                 <div
-                  className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-sky-400')}
+                  className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-blue-400')}
                   style={{ width: `${Math.min(fillPercent, 100)}%` }}
                 />
               </div>
@@ -246,7 +246,7 @@ export default function EventDetailPage() {
                 <h3 className="font-semibold text-gray-900">На карте</h3>
                 <button
                   onClick={() => { setRouteModal(true); setManualFrom('') }}
-                  className="flex items-center gap-1.5 text-sm font-medium text-sky-600 hover:text-sky-700 transition-colors"
+                  className="flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-700 transition-colors"
                 >
                   <Navigation className="w-4 h-4" />
                   Построить маршрут
@@ -269,7 +269,7 @@ export default function EventDetailPage() {
               {event.organizer.avatar_url ? (
                 <img src={event.organizer.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-600 font-semibold">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold">
                   {event.organizer.first_name[0]}
                 </div>
               )}
@@ -281,7 +281,7 @@ export default function EventDetailPage() {
                     href={`https://t.me/${event.organizer.telegram_username}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-xs text-sky-500 hover:text-sky-700 transition-colors"
+                    className="text-xs text-blue-700 hover:text-blue-700 transition-colors"
                   >
                     @{event.organizer.telegram_username}
                   </a>
@@ -296,7 +296,7 @@ export default function EventDetailPage() {
                 className={clsx(
                   'w-full btn text-sm transition-colors',
                   following
-                    ? 'btn-secondary text-sky-600 hover:text-red-500'
+                    ? 'btn-secondary text-blue-700 hover:text-red-500'
                     : 'btn-secondary'
                 )}
               >

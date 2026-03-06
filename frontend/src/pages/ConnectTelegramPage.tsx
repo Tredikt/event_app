@@ -40,10 +40,10 @@ export default function ConnectTelegramPage() {
   }, [link])
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-blue-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
       <div className="w-full max-w-md">
         <div className="card p-8 text-center space-y-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-sky-500 rounded-2xl mx-auto shadow-lg">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-700 rounded-2xl mx-auto shadow-lg">
             <MessageCircle className="w-8 h-8 text-white" />
           </div>
 
@@ -57,7 +57,7 @@ export default function ConnectTelegramPage() {
           </div>
 
           {loading ? (
-            <Loader className="w-6 h-6 animate-spin text-sky-500 mx-auto" />
+            <Loader className="w-6 h-6 animate-spin text-blue-700 mx-auto" />
           ) : link ? (
             <div className="space-y-4">
               <a

@@ -8,6 +8,7 @@ import type { EventList } from '@/types'
 interface Props {
   event: EventList
   compact?: boolean
+  wide?: boolean
 }
 
 function shortAddress(address: string): string {
@@ -17,7 +18,7 @@ function shortAddress(address: string): string {
   return parts.slice(0, 2).join(', ')
 }
 
-export default function EventCard({ event, compact = false }: Props) {
+export default function EventCard({ event, compact = false, wide = false }: Props) {
   const fillPercent = (event.participants_count / event.capacity) * 100
   const dateStr = format(new Date(event.date), 'd MMM, HH:mm', { locale: ru })
 
@@ -27,7 +28,7 @@ export default function EventCard({ event, compact = false }: Props) {
       className="card flex flex-col overflow-hidden hover:shadow-md transition-shadow group"
     >
       {/* Image / placeholder */}
-      <div className={clsx('relative overflow-hidden flex-shrink-0', compact ? 'h-32' : 'h-40')}>
+      <div className={clsx('relative overflow-hidden flex-shrink-0', wide ? 'h-40' : compact ? 'h-28' : 'h-32')}>
         {event.image_url ? (
           <img
             src={event.image_url}
@@ -56,7 +57,7 @@ export default function EventCard({ event, compact = false }: Props) {
         {/* Category badge */}
         <div className="absolute top-2 left-2">
           <span className="badge text-white text-xs font-medium shadow-sm" style={{ backgroundColor: event.category.color }}>
-            {event.category.icon} {event.category.name}
+            {event.category.icon}{wide ? ` ${event.category.name}` : ''}
           </span>
         </div>
 
@@ -74,30 +75,33 @@ export default function EventCard({ event, compact = false }: Props) {
       </div>
 
       {/* Body */}
-      <div className="p-3.5 flex flex-col gap-2 flex-1">
-        <h3 className="font-semibold text-gray-900 line-clamp-2 leading-snug group-hover:text-sky-600 transition-colors text-sm">
+      <div className={clsx('flex flex-col gap-1.5 flex-1', wide ? 'p-3.5' : 'p-2.5')}>
+        <h3 className={clsx(
+          'font-semibold text-gray-900 line-clamp-2 leading-snug group-hover:text-blue-700 transition-colors',
+          wide ? 'text-sm' : 'text-xs'
+        )}>
           {event.title}
         </h3>
 
-        <div className="flex items-start gap-1.5 text-xs text-gray-500">
-          <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-          <span className="line-clamp-1">{shortAddress(event.address)}</span>
+        <div className="flex items-start gap-1 text-xs text-gray-500">
+          <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+          <span className="line-clamp-1 text-[11px]">{shortAddress(event.address)}</span>
         </div>
 
         {/* Footer: participants + progress */}
         <div className="mt-auto pt-1">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
             <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
+              <Users className="w-3 h-3" />
               {event.participants_count} / {event.capacity}
             </span>
-            <span className={clsx('font-medium', event.is_full ? 'text-red-500' : 'text-sky-500')}>
-              {event.is_full ? 'Заполнено' : `${Math.round(fillPercent)}%`}
+            <span className={clsx('font-medium', event.is_full ? 'text-red-500' : 'text-blue-700')}>
+              {event.is_full ? 'Нет мест' : `${Math.round(fillPercent)}%`}
             </span>
           </div>
           <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-sky-400')}
+              className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-blue-600')}
               style={{ width: `${Math.min(fillPercent, 100)}%` }}
             />
           </div>

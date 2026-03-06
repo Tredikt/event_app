@@ -1,18 +1,19 @@
 import { useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { MapPin, Loader } from 'lucide-react'
+import { MapPin, Loader, Camera, X } from 'lucide-react'
 import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
 
 interface Props {
   defaultValues?: Partial<CreateEventData>
+  defaultImageUrl?: string
   categories: Category[]
-  onSubmit: (data: CreateEventData) => Promise<void>
+  onSubmit: (data: CreateEventData, imageFile?: File) => Promise<void>
   submitLabel: string
 }
 
-export default function EventForm({ defaultValues, categories, onSubmit, submitLabel }: Props) {
+export default function EventForm({ defaultValues, defaultImageUrl, categories, onSubmit, submitLabel }: Props) {
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues } = useForm<CreateEventData>({
     defaultValues: defaultValues || { capacity: 10 },
   })
@@ -24,10 +25,25 @@ export default function EventForm({ defaultValues, categories, onSubmit, submitL
   )
   const [geocoding, setGeocoding] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(defaultImageUrl || null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Split register to merge onChange without losing RHF tracking
   const { onChange: rhfAddressOnChange, ...addressRest } = register('address', { required: 'Обязательное поле' })
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  const removeImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const nominatimSearch = async (query: string, limit = 5): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
     const params = new URLSearchParams({ q: query, format: 'json', limit: String(limit), 'accept-language': 'ru' })
@@ -85,14 +101,69 @@ export default function EventForm({ defaultValues, categories, onSubmit, submitL
     geocodeAddressValue(getValues('address'))
   }
 
-  const handleMapClick = (lat: number, lng: number) => {
+  const handleMapClick = async (lat: number, lng: number) => {
     setValue('latitude', lat)
     setValue('longitude', lng)
     setMapPin([lat, lng])
+    setSuggestions([])
+    try {
+      const params = new URLSearchParams({ lat: String(lat), lon: String(lng), format: 'json', 'accept-language': 'ru' })
+      const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
+        headers: { 'User-Agent': 'communicate-site/1.0' },
+      })
+      const data = await resp.json()
+      if (data.display_name) {
+        setValue('address', data.display_name)
+      }
+    } catch {
+      // silent
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit((data) => onSubmit(data, imageFile ?? undefined))} className="space-y-5">
+
+      {/* Image picker */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Обложка мероприятия</label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageChange}
+        />
+        {imagePreview ? (
+          <div className="relative rounded-xl overflow-hidden border border-gray-200" style={{ height: '180px' }}>
+            <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={removeImage}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 text-white text-xs px-2.5 py-1.5 rounded-lg transition-colors"
+            >
+              <Camera className="w-3.5 h-3.5" />Изменить
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-32 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-blue-700"
+          >
+            <Camera className="w-6 h-6" />
+            <span className="text-sm font-medium">Добавить обложку</span>
+            <span className="text-xs">JPG, PNG до 5 МБ</span>
+          </button>
+        )}
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">Название *</label>
         <input {...register('title', { required: 'Обязательное поле' })} className="input" placeholder="Например: Волейбол в парке" />
@@ -110,7 +181,6 @@ export default function EventForm({ defaultValues, categories, onSubmit, submitL
         {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>}
       </div>
 
-      {/* Stack on mobile, side-by-side on sm+ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Дата и время *</label>
@@ -162,7 +232,7 @@ export default function EventForm({ defaultValues, categories, onSubmit, submitL
                 {suggestions.map((s, i) => (
                   <li
                     key={i}
-                    className="px-3 py-2.5 text-sm cursor-pointer hover:bg-sky-50 border-b border-gray-100 last:border-0 leading-tight"
+                    className="px-3 py-2.5 text-sm cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-0 leading-tight"
                     onMouseDown={() => selectSuggestion(s)}
                   >
                     {s}
