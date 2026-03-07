@@ -1,12 +1,20 @@
+import { useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Compass, Plus, Calendar, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { authApi } from '@/api/auth'
 import clsx from 'clsx'
 
 export default function Layout() {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, updateUser } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      authApi.getMe().then((r) => updateUser(r.data)).catch(() => {})
+    }
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">

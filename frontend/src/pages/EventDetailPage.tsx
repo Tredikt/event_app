@@ -165,23 +165,44 @@ export default function EventDetailPage() {
     }
   }
 
-  const openYandexRoute = (fromLat: number, fromLon: number, mode: 'auto' | 'taxi' = 'auto') => {
+  const openAppOrWeb = (appUrl: string, webUrl: string) => {
+    window.location.href = appUrl
+    setTimeout(() => { if (!document.hidden) window.open(webUrl, '_blank') }, 2000)
+  }
+
+  const openYandexRoute = (fromLat: number, fromLon: number) => {
     const to = `${event!.latitude},${event!.longitude}`
     const from = `${fromLat},${fromLon}`
-    window.open(`https://yandex.ru/maps/?rtext=${from}~${to}&rtt=${mode}`, '_blank')
+    openAppOrWeb(
+      `yandexmaps://maps.yandex.ru/?rtext=${from}~${to}&rtt=auto`,
+      `https://yandex.ru/maps/?rtext=${from}~${to}&rtt=auto`
+    )
     setRouteModal(false)
   }
 
   const handleTaxi = () => {
     if (!event?.latitude || !event?.longitude) return
+    const toLat = event.latitude
+    const toLon = event.longitude
     if (!navigator.geolocation) {
-      // Open without origin — Yandex will ask
-      window.open(`https://yandex.ru/maps/?rtext=~${event.latitude},${event.longitude}&rtt=taxi`, '_blank')
+      openAppOrWeb(
+        `yandextaxi://route?end-lat=${toLat}&end-lon=${toLon}&appmetrica_tracking_id=1178268795219780156`,
+        `https://go.yandex/`
+      )
       return
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => openYandexRoute(pos.coords.latitude, pos.coords.longitude, 'taxi'),
-      () => window.open(`https://yandex.ru/maps/?rtext=~${event.latitude},${event.longitude}&rtt=taxi`, '_blank'),
+      (pos) => {
+        const { latitude: fromLat, longitude: fromLon } = pos.coords
+        openAppOrWeb(
+          `yandextaxi://route?start-lat=${fromLat}&start-lon=${fromLon}&end-lat=${toLat}&end-lon=${toLon}&appmetrica_tracking_id=1178268795219780156`,
+          `https://go.yandex/`
+        )
+      },
+      () => openAppOrWeb(
+        `yandextaxi://route?end-lat=${toLat}&end-lon=${toLon}&appmetrica_tracking_id=1178268795219780156`,
+        `https://go.yandex/`
+      ),
       { timeout: 5000 }
     )
   }
@@ -195,7 +216,7 @@ export default function EventDetailPage() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGeoLoading(false)
-        openYandexRoute(pos.coords.latitude, pos.coords.longitude, 'auto')
+        openYandexRoute(pos.coords.latitude, pos.coords.longitude)
       },
       () => {
         setGeoLoading(false)
@@ -216,7 +237,7 @@ export default function EventDetailPage() {
       })
       const data = await res.json()
       if (!data.length) { toast.error('Адрес не найден'); return }
-      openYandexRoute(parseFloat(data[0].lat), parseFloat(data[0].lon), 'auto')
+      openYandexRoute(parseFloat(data[0].lat), parseFloat(data[0].lon))
     } catch {
       toast.error('Ошибка геокодирования')
     } finally {
@@ -497,8 +518,8 @@ export default function EventDetailPage() {
                 onChange={(e) => setManualFrom(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleManualRoute()}
                 placeholder="Моя улица, дом…"
-                className="flex-1 input text-sm"
-                autoFocus
+                className="flex-1 input"
+                style={{ fontSize: '16px' }}
               />
               <button
                 onClick={handleManualRoute}

@@ -186,11 +186,10 @@ export default function ProfilePage() {
 
       {/* Rating modal */}
       {showRating && (
-        <div className="fixed inset-0 z-50 flex items-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowRating(false)} />
           <div
-            className="relative w-full bg-white rounded-t-3xl shadow-2xl"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}
+            className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl pb-6"
           >
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-200" />
