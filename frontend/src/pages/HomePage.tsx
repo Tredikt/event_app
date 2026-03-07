@@ -77,14 +77,6 @@ export default function HomePage() {
           onClick={() => navigate('/events/new')}
         >
           <img src="/banner.jpg" alt="banner" className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <p className="text-white font-bold text-lg leading-tight">Найди своё мероприятие</p>
-            <p className="text-white/80 text-sm mt-0.5">Встречи, походы, вечеринки рядом с тобой</p>
-            <span className="inline-block mt-2 bg-white/20 backdrop-blur-sm text-white text-xs font-medium px-3 py-1 rounded-full">
-              Создать →
-            </span>
-          </div>
         </div>
       </div>
 

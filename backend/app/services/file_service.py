@@ -7,10 +7,13 @@ import uuid
 import aiofiles
 from fastapi import HTTPException, UploadFile
 from PIL import Image
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 
 from app.core.config import settings
 
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 MAX_SIZE = settings.MAX_AVATAR_SIZE_MB * 1024 * 1024
 
 
