@@ -285,14 +285,12 @@ export default function EventDetailPage() {
               </div>
               {isOrganizer && (
                 <div className="absolute top-3 right-3 flex gap-2">
-                  {!isPast && (
-                    <button
-                      onClick={() => setDeleteConfirm(true)}
-                      className="btn-secondary text-xs py-1.5 text-red-500 hover:text-red-600"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setDeleteConfirm(true)}
+                    className="btn-secondary text-xs py-1.5 text-red-500 hover:text-red-600"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <Link to={`/events/${event.id}/edit`} className="btn-secondary text-xs py-1.5">
                     <Edit className="w-3.5 h-3.5" />Редактировать
                   </Link>

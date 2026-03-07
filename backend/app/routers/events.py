@@ -64,6 +64,7 @@ async def list_events(
         select(Event)
         .options(selectinload(Event.category), selectinload(Event.organizer))
         .where(Event.status == EventStatus.active)
+        .where(Event.date >= datetime.utcnow())
     )
     if category_id:
         query = query.where(Event.category_id == category_id)
@@ -204,14 +205,11 @@ async def delete_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from datetime import datetime, timezone
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
-    if event.date <= datetime.now(timezone.utc).replace(tzinfo=None):
-        raise HTTPException(status_code=400, detail="Нельзя удалить начавшееся мероприятие")
     await db.delete(event)
     await db.commit()
 
