@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Users, Bell, BellOff, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList } from 'lucide-react'
+import { Calendar, MapPin, Users, Bell, BellOff, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -28,6 +28,8 @@ export default function EventDetailPage() {
   const manualInputRef = useRef<HTMLInputElement>(null)
   const [attendance, setAttendance] = useState<AttendanceParticipant[]>([])
   const [attendanceSaving, setAttendanceSaving] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -47,7 +49,6 @@ export default function EventDetailPage() {
       const isPast = new Date(event.date) < new Date()
       if (isPast) {
         eventsApi.getAttendance(event.id).then((r) => setAttendance(r.data)).catch(() => {})
-        eventsApi.requestAttendanceNotification(event.id).catch(() => {})
       }
     } else {
       eventsApi.myStatus(event.id)
@@ -165,6 +166,21 @@ export default function EventDetailPage() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!event) return
+    setDeleteLoading(true)
+    try {
+      await eventsApi.delete(event.id)
+      toast.success('Мероприятие удалено')
+      navigate('/')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка удаления')
+    } finally {
+      setDeleteLoading(false)
+      setDeleteConfirm(false)
+    }
+  }
+
   const openAppOrWeb = (appUrl: string, webUrl: string) => {
     window.location.href = appUrl
     setTimeout(() => { if (!document.hidden) window.open(webUrl, '_blank') }, 2000)
@@ -268,9 +284,19 @@ export default function EventDetailPage() {
                 </span>
               </div>
               {isOrganizer && (
-                <Link to={`/events/${event.id}/edit`} className="absolute top-3 right-3 btn-secondary text-xs py-1.5">
-                  <Edit className="w-3.5 h-3.5" />Редактировать
-                </Link>
+                <div className="absolute top-3 right-3 flex gap-2">
+                  {!isPast && (
+                    <button
+                      onClick={() => setDeleteConfirm(true)}
+                      className="btn-secondary text-xs py-1.5 text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <Link to={`/events/${event.id}/edit`} className="btn-secondary text-xs py-1.5">
+                    <Edit className="w-3.5 h-3.5" />Редактировать
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -479,6 +505,34 @@ export default function EventDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Delete confirm modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="font-bold text-gray-900 text-lg mb-2">Удалить мероприятие?</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Это действие нельзя отменить. Все участники будут удалены из списка.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1 btn-secondary"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleteLoading}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-50"
+              >
+                {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Удалить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Route modal */}
       {routeModal && (

@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -39,6 +40,11 @@ async def seed_categories():
         {"name": "Творчество", "icon": "🎨", "color": "#A855F7"},
         {"name": "Обучение", "icon": "📚", "color": "#10B981"},
         {"name": "Отдых", "icon": "🌿", "color": "#22C55E"},
+        {"name": "Кино", "icon": "🎬", "color": "#EF4444"},
+        {"name": "Музыка", "icon": "🎵", "color": "#F59E0B"},
+        {"name": "Еда", "icon": "🍕", "color": "#EC4899"},
+        {"name": "Игры", "icon": "🎮", "color": "#6366F1"},
+        {"name": "Путешествия", "icon": "✈️", "color": "#14B8A6"},
     ]
     target_names = {c["name"] for c in categories}
     async with AsyncSessionLocal() as db:
@@ -106,8 +112,16 @@ async def lifespan(app: FastAPI):
         await ptb.updater.start_polling()
         logger.info("Telegram bot polling started")
 
+    from app.services.cron import run_cron
+    cron_task = asyncio.create_task(run_cron())
     logger.info("Application started")
     yield
+
+    cron_task.cancel()
+    try:
+        await cron_task
+    except asyncio.CancelledError:
+        pass
 
     if ptb:
         await ptb.updater.stop()

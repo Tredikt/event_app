@@ -17,8 +17,12 @@ export default function ToursPage() {
   const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
+  const TOURS_CATEGORIES = ['Спорт', 'Развлечения', 'Творчество', 'Обучение', 'Отдых']
+
   useEffect(() => {
-    eventsApi.getCategories().then((r) => setCategories(r.data))
+    eventsApi.getCategories().then((r) =>
+      setCategories(r.data.filter((c) => TOURS_CATEGORIES.includes(c.name)))
+    )
   }, [])
 
   const fetchEvents = useCallback(async () => {

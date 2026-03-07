@@ -39,14 +39,12 @@ from app.services.notifications import notify_attendance_request, notify_event_u
 
 router = APIRouter(prefix="/events", tags=["events"])
 
-_TARGET_CATEGORIES = {"Спорт", "Развлечения", "Творчество", "Обучение", "Отдых"}
+_TOURS_CATEGORIES = {"Спорт", "Развлечения", "Творчество", "Обучение", "Отдых"}
 
 
 @router.get("/categories", response_model=list[CategoryOut])
 async def get_categories(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(EventCategory).where(EventCategory.name.in_(_TARGET_CATEGORIES))
-    )
+    result = await db.execute(select(EventCategory))
     return result.scalars().all()
 
 
@@ -206,12 +204,15 @@ async def delete_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from datetime import datetime, timezone
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
-    event.status = EventStatus.cancelled
+    if event.date <= datetime.now(timezone.utc).replace(tzinfo=None):
+        raise HTTPException(status_code=400, detail="Нельзя удалить начавшееся мероприятие")
+    await db.delete(event)
     await db.commit()
 
 

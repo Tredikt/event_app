@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { MapPin, Loader, Camera, X } from 'lucide-react'
 import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
@@ -30,6 +30,10 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   const [imagePreview, setImagePreview] = useState<string | null>(defaultImageUrl || null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
+  const dateValue = useWatch({ control, name: 'date' })
+  const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
 
   const { onChange: rhfAddressOnChange, ...addressRest } = register('address', { required: 'Обязательное поле' })
 
@@ -198,6 +202,12 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
             )}
           />
           {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
+          {dayOfWeek && (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <span className="text-xs text-gray-500">День недели:</span>
+              <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
+            </div>
+          )}
         </div>
 
         <div>
