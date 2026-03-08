@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
 import type { UserProfile } from '@/types'
 import NotificationSettingsPanel from '@/components/notifications/NotificationSettings'
+import AvatarCropModal from '@/components/ui/AvatarCropModal'
 
 export default function ProfilePage() {
   const { user, updateUser, logout } = useAuthStore()
@@ -15,6 +16,7 @@ export default function ProfilePage() {
   const [loadingTg, setLoadingTg] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showRating, setShowRating] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<Partial<UserProfile>>({
@@ -34,11 +36,19 @@ export default function ProfilePage() {
     }
   }
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCropSrc(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleCropDone = async (croppedFile: File) => {
+    setCropSrc(null)
     try {
-      const { data } = await authApi.uploadAvatar(file)
+      const { data } = await authApi.uploadAvatar(croppedFile)
       updateUser(data)
       toast.success('Аватар обновлён')
     } catch {
@@ -71,6 +81,7 @@ export default function ProfilePage() {
   const filledStars = Math.round(rating / 5 * 5)
 
   return (
+    <>
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
       {/* Avatar + name */}
@@ -252,5 +263,14 @@ export default function ProfilePage() {
       )}
 
     </div>
+
+    {cropSrc && (
+      <AvatarCropModal
+        imageSrc={cropSrc}
+        onCancel={() => setCropSrc(null)}
+        onCrop={handleCropDone}
+      />
+    )}
+    </>
   )
 }

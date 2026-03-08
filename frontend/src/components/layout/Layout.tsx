@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Compass, Plus, Calendar, User } from 'lucide-react'
+import { Home, Newspaper, Plus, Calendar, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/api/auth'
 import clsx from 'clsx'
@@ -39,14 +39,14 @@ export default function Layout() {
           </NavLink>
 
           <NavLink
-            to="/tours"
+            to="/news"
             className={({ isActive }) =>
               clsx('flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors',
                 isActive ? 'text-blue-700' : 'text-gray-400')
             }
           >
-            <Compass className="w-5 h-5" />
-            <span>Туры</span>
+            <Newspaper className="w-5 h-5" />
+            <span>Новости</span>
           </NavLink>
 
           {/* Centre FAB */}

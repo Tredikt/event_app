@@ -53,6 +53,7 @@ class UserProfile(UserPublic):
     phone: str
     email: Optional[str] = None
     telegram_id: Optional[int] = None
+    is_admin: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

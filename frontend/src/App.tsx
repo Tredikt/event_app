@@ -9,8 +9,9 @@ import ProfilePage from '@/pages/ProfilePage'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import MyEventsPage from '@/pages/MyEventsPage'
-import ToursPage from '@/pages/ToursPage'
+import NewsPage from '@/pages/NewsPage'
 import ConnectTelegramPage from '@/pages/ConnectTelegramPage'
+import PrivacyPolicyPage from '@/pages/PrivacyPolicyPage'
 import { useAuthStore } from '@/stores/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -31,10 +32,12 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/telegram/connect" element={<PrivateRoute><ConnectTelegramPage /></PrivateRoute>} />
         <Route element={<Layout />}>
           <Route path="/" element={<HomePage />} />
-          <Route path="/tours" element={<ToursPage />} />
+          <Route path="/news" element={<NewsPage />} />
+          <Route path="/tours" element={<Navigate to="/" replace />} />
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route
             path="/events/new"

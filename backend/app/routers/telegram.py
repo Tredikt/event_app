@@ -1,5 +1,6 @@
 """Telegram bot webhook handler and account-linking utilities."""
 
+import io
 import logging
 import secrets
 from typing import Optional
@@ -45,28 +46,31 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 # token -> user_id  (use Redis in production)
 PENDING_LINKS: dict[str, int] = {}
 
-# Cached bot username — fetched once from Telegram on first call
+# Cached bot username
 _bot_username: Optional[str] = None
 
-# Shared PTB Bot instance — set in get_ptb_app(), reused for all outgoing messages
+# Shared PTB Bot instance
 _bot = None
+
+# Admin post drafts: chat_id -> {step, title, content, city}
+# steps: 'title' | 'content' | 'city' | 'photo'
+_admin_draft: dict[int, dict] = {}
+
+
+def _is_admin(chat_id: int) -> bool:
+    return chat_id in settings.admin_telegram_ids
 
 
 def get_bot():
-    """Return the shared PTB Bot instance (None if not yet initialised)."""
     return _bot
 
 
 async def get_bot_username() -> Optional[str]:
-    """Fetch and cache the bot's own @username via getMe."""
     global _bot_username
-
     if _bot_username:
         return _bot_username
-
     if not settings.TELEGRAM_BOT_TOKEN:
         return None
-
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             response = await client.get(
@@ -75,11 +79,9 @@ async def get_bot_username() -> Optional[str]:
             data = response.json()
             if data.get("ok"):
                 _bot_username = data["result"].get("username")
-                logger.info("Bot username fetched: @%s", _bot_username)
                 return _bot_username
     except Exception as exc:
         logger.warning("Could not fetch bot username: %s", exc)
-
     return None
 
 
@@ -110,43 +112,21 @@ async def telegram_webhook(request: Request):
                     await send_telegram_message(
                         chat_id,
                         "✅ <b>Telegram успешно привязан!</b>\n\n"
-                        "Теперь вы будете получать уведомления о мероприятиях.\n\n"
-                        "📋 <b>Доступные команды:</b>\n"
-                        "/stop — Отключить уведомления\n"
-                        "/on — Включить уведомления\n"
-                        "/help — Помощь",
+                        "Теперь вы будете получать уведомления о мероприятиях.",
                     )
                 else:
-                    await send_telegram_message(
-                        chat_id, "❌ Токен недействителен или истёк."
-                    )
+                    await send_telegram_message(chat_id, "❌ Токен недействителен или истёк.")
         else:
-            await send_telegram_message(
-                chat_id,
-                "👋 <b>Привет! Ты попал в Communicate.</b>\n\n"
-                "Это платформа для поиска мероприятий рядом с тобой:\n"
-                "• 📍 Находи события на карте\n"
-                "• ✅ Записывайся на мероприятия\n"
-                "• 🔔 Получай уведомления о новых событиях\n\n"
-                "Чтобы начать — зарегистрируйся на сайте и привяжи этот Telegram в профиле.\n\n"
-                "📋 <b>Команды:</b>\n"
-                "/stop — Отключить уведомления\n"
-                "/on — Включить уведомления\n"
-                "/help — Помощь",
-            )
-            cats_text = await _get_categories_text()
-            if cats_text:
-                await send_telegram_message(chat_id, cats_text)
+            await send_telegram_message(chat_id, "👋 Привет! Зарегистрируйся на сайте и привяжи Telegram в профиле.")
 
     elif text == "/help":
         await send_telegram_message(
             chat_id,
             "📋 <b>Команды бота:</b>\n\n"
-            "/start — Начало работы\n"
             "/stop — Отключить уведомления\n"
             "/on — Включить уведомления\n"
-            "/help — Помощь\n\n"
-            "Для привязки аккаунта перейдите в настройки профиля на сайте.",
+            "/myid — Узнать свой Telegram ID\n"
+            "/help — Помощь",
         )
 
     return {"ok": True}
@@ -156,7 +136,6 @@ async def telegram_webhook(request: Request):
 async def generate_link_token(
     current_user: User = Depends(get_current_user),
 ):
-    """Generate a one-time deep-link to connect the user's Telegram account."""
     if not settings.TELEGRAM_BOT_TOKEN:
         raise HTTPException(status_code=503, detail="Telegram bot not configured")
 
@@ -176,14 +155,170 @@ async def generate_link_token(
     }
 
 
-async def _ptb_message_handler(update: Update, context) -> None:
-    """Handle all text messages from the Telegram bot via polling."""
+# ── Admin news posting ────────────────────────────────────────────────────────
+
+async def _create_news_post(chat_id: int, draft: dict, photo_bytes: Optional[bytes] = None) -> None:
+    from app.models.news import NewsPost
+    from app.services.file_service import _process_image, _upload_s3, _save_local
+
+    image_url = None
+    if photo_bytes:
+        try:
+            data = _process_image(photo_bytes, 1200, 800)
+            import uuid
+            uid = uuid.uuid4().hex
+            if settings.s3_enabled:
+                image_url = await _upload_s3(f"news/{uid}.jpg", data)
+            else:
+                image_url = await _save_local("news", f"{uid}.jpg", data)
+        except Exception as exc:
+            logger.warning("Could not process news image: %s", exc)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.telegram_id == chat_id))
+        user = result.scalar_one_or_none()
+        post = NewsPost(
+            title=draft["title"],
+            content=draft["content"],
+            city=draft.get("city") or None,
+            image_url=image_url,
+            author_id=user.id if user else None,
+        )
+        db.add(post)
+        await db.commit()
+
+
+async def _handle_admin_step(update: Update) -> bool:
+    """Handle admin news conversation. Returns True if message consumed."""
     message = update.message
-    if not message or not message.text:
+    if not message:
+        return False
+
+    chat_id = message.chat.id
+    if not _is_admin(chat_id):
+        return False
+
+    text = message.text or ""
+    draft = _admin_draft.get(chat_id)
+
+    if text == "/postnews":
+        _admin_draft[chat_id] = {"step": "title"}
+        await send_telegram_message(chat_id, "📝 <b>Введите заголовок новости:</b>\n\n/cancel — отменить")
+        return True
+
+    if text == "/cancel":
+        if chat_id in _admin_draft:
+            del _admin_draft[chat_id]
+            await send_telegram_message(chat_id, "❌ Публикация отменена.")
+            return True
+        return False
+
+    if not draft:
+        return False
+
+    step = draft["step"]
+
+    if step == "title":
+        if not text.strip():
+            await send_telegram_message(chat_id, "⚠️ Заголовок пустой, попробуйте снова:")
+            return True
+        draft["title"] = text.strip()
+        draft["step"] = "content"
+        await send_telegram_message(
+            chat_id,
+            "✏️ <b>Введите текст новости:</b>\n\n"
+            "Поддерживается форматирование Telegram (<b>жирный</b>, <i>курсив</i>, <code>код</code>, ссылки).\n\n"
+            "/cancel — отменить"
+        )
+        return True
+
+    if step == "content":
+        # Preserve Telegram HTML formatting
+        content = message.text_html if message.text_html else text
+        if not content.strip():
+            await send_telegram_message(chat_id, "⚠️ Текст пустой, попробуйте снова:")
+            return True
+        draft["content"] = content
+        draft["step"] = "city"
+        await send_telegram_message(
+            chat_id,
+            "🏙️ <b>Введите город</b> (или /skip чтобы пропустить):\n\n/cancel — отменить"
+        )
+        return True
+
+    if step == "city":
+        draft["city"] = None if text == "/skip" else text.strip()
+        draft["step"] = "photo"
+        await send_telegram_message(
+            chat_id,
+            "🖼️ <b>Отправьте фото</b> (или /skip чтобы пропустить):\n\n/cancel — отменить"
+        )
+        return True
+
+    if step == "photo":
+        if text == "/skip":
+            await _create_news_post(chat_id, draft)
+            del _admin_draft[chat_id]
+            await send_telegram_message(chat_id, "✅ <b>Новость опубликована!</b>")
+        else:
+            await send_telegram_message(chat_id, "⚠️ Отправьте фото или /skip чтобы пропустить.")
+        return True
+
+    return False
+
+
+async def _handle_admin_photo(update: Update) -> bool:
+    """Handle photo in admin post flow. Returns True if consumed."""
+    message = update.message
+    if not message or not message.photo:
+        return False
+
+    chat_id = message.chat.id
+    if not _is_admin(chat_id):
+        return False
+
+    draft = _admin_draft.get(chat_id)
+    if not draft or draft.get("step") != "photo":
+        return False
+
+    photo_bytes = None
+    try:
+        photo = message.photo[-1]
+        file = await _bot.get_file(photo.file_id)
+        buf = io.BytesIO()
+        await file.download_to_memory(buf)
+        photo_bytes = buf.getvalue()
+    except Exception as exc:
+        logger.warning("Could not download photo: %s", exc)
+
+    await _create_news_post(chat_id, draft, photo_bytes)
+    del _admin_draft[chat_id]
+    await send_telegram_message(chat_id, "✅ <b>Новость с фото опубликована!</b>")
+    return True
+
+
+# ── PTB message handler ───────────────────────────────────────────────────────
+
+async def _ptb_message_handler(update: Update, context) -> None:
+    message = update.message
+    if not message:
+        return
+
+    chat_id = message.chat.id
+
+    # Admin photo flow
+    if message.photo:
+        if await _handle_admin_photo(update):
+            return
+
+    # Admin text flow
+    if message.text and await _handle_admin_step(update):
+        return
+
+    if not message.text:
         return
 
     text = message.text
-    chat_id = message.chat.id
     username = message.from_user.username if message.from_user else None
 
     if text.startswith("/start"):
@@ -212,16 +347,15 @@ async def _ptb_message_handler(update: Update, context) -> None:
         else:
             await send_telegram_message(
                 chat_id,
-                "👋 <b>Привет! Ты попал в Communicate.</b>\n\n"
+                "👋 <b>Привет! Ты попал в Досуг.</b>\n\n"
                 "Это платформа для поиска мероприятий рядом с тобой:\n"
                 "• 📍 Находи события на карте\n"
                 "• ✅ Записывайся на мероприятия\n"
                 "• 🔔 Получай уведомления о новых событиях\n\n"
-                "Чтобы начать — зарегистрируйся на сайте и привяжи этот Telegram в профиле.\n\n"
+                "Чтобы начать — зарегистрируйся на сайте и привяжи Telegram в профиле.\n\n"
                 "📋 <b>Команды:</b>\n"
                 "/stop — Отключить уведомления\n"
-                "/on — Включить уведомления\n"
-                "/help — Помощь",
+                "/on — Включить уведомления",
             )
             cats_text = await _get_categories_text()
             if cats_text:
@@ -243,11 +377,7 @@ async def _ptb_message_handler(update: Update, context) -> None:
             else:
                 db.add(NotificationSettings(user_id=user.id, telegram_enabled=False))
             await db.commit()
-        await send_telegram_message(
-            chat_id,
-            "🔕 <b>Уведомления отключены.</b>\n\n"
-            "Чтобы включить снова — отправьте /on",
-        )
+        await send_telegram_message(chat_id, "🔕 <b>Уведомления отключены.</b>\n\nЧтобы включить снова — /on")
 
     elif text == "/on":
         async with AsyncSessionLocal() as db:
@@ -265,27 +395,26 @@ async def _ptb_message_handler(update: Update, context) -> None:
             else:
                 db.add(NotificationSettings(user_id=user.id, telegram_enabled=True))
             await db.commit()
-        await send_telegram_message(
-            chat_id,
-            "🔔 <b>Уведомления включены!</b>\n\n"
-            "Вы снова будете получать уведомления о мероприятиях.",
-        )
+        await send_telegram_message(chat_id, "🔔 <b>Уведомления включены!</b>")
 
     elif text == "/help":
+        admin_hint = "\n/postnews — Опубликовать новость" if _is_admin(chat_id) else ""
         await send_telegram_message(
             chat_id,
             "📋 <b>Команды бота:</b>\n\n"
             "/stop — Отключить уведомления\n"
             "/on — Включить уведомления\n"
-            "/help — Помощь\n\n"
-            "Управление подписками также доступно в профиле на сайте.",
+            f"/myid — Узнать свой Telegram ID\n"
+            f"/help — Помощь{admin_hint}",
         )
+
+    elif text == "/myid":
+        await send_telegram_message(chat_id, f"🆔 Ваш Telegram ID: <code>{chat_id}</code>")
 
 
 def get_ptb_app() -> Application:
-    """Build a PTB Application configured with message handlers."""
     global _bot
     ptb = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    ptb.add_handler(MessageHandler(filters.TEXT, _ptb_message_handler))
+    ptb.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, _ptb_message_handler))
     _bot = ptb.bot
     return ptb

@@ -22,8 +22,9 @@ from app.models import (  # noqa: F401 — register all models with Base.metadat
     NotificationSettings,
     OrganizerSubscription,
     User,
+    NewsPost,
 )
-from app.routers import auth, events, notifications, telegram
+from app.routers import auth, events, notifications, telegram, news
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -81,6 +82,9 @@ async def migrate_schema():
         ))
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS rating FLOAT NOT NULL DEFAULT 5.0"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"
         ))
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS event_attendance (
@@ -152,6 +156,7 @@ app.include_router(auth.router)
 app.include_router(events.router)
 app.include_router(notifications.router)
 app.include_router(telegram.router)
+app.include_router(news.router)
 
 
 @app.get("/health")

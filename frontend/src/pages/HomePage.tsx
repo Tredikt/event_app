@@ -10,12 +10,16 @@ import toast from 'react-hot-toast'
 import clsx from 'clsx'
 
 type View = 'grid' | 'map'
+type Tab = 'events' | 'tours'
+
+const TOURS_CATEGORIES = ['Спорт', 'Развлечения', 'Творчество', 'Обучение', 'Отдых']
 
 export default function HomePage() {
   const [events, setEvents] = useState<EventList[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<View>('grid')
+  const [tab, setTab] = useState<Tab>('events')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [onlyAvailable] = useState(false)
@@ -26,6 +30,10 @@ export default function HomePage() {
     eventsApi.getCategories().then((r) => setCategories(r.data))
   }, [])
 
+  const visibleCategories = tab === 'tours'
+    ? categories.filter((c) => TOURS_CATEGORIES.includes(c.name))
+    : categories
+
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
@@ -33,7 +41,7 @@ export default function HomePage() {
         category_id: selectedCategory ?? undefined,
         search: search || undefined,
         only_available: onlyAvailable,
-        is_tour: false,
+        is_tour: tab === 'tours',
       })
       setEvents(data)
     } catch {
@@ -41,7 +49,11 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory, search, onlyAvailable])
+  }, [selectedCategory, search, onlyAvailable, tab])
+
+  useEffect(() => {
+    setSelectedCategory(null)
+  }, [tab])
 
   useEffect(() => {
     const timer = setTimeout(fetchEvents, 300)
@@ -80,15 +92,41 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Tab toggle */}
+      <div className="bg-white px-4 pt-3 pb-0 mt-3 border-b border-gray-100 shadow-sm">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-3">
+            <button
+              onClick={() => setTab('events')}
+              className={clsx(
+                'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
+                tab === 'events' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+              )}
+            >
+              Мероприятия
+            </button>
+            <button
+              onClick={() => setTab('tours')}
+              className={clsx(
+                'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
+                tab === 'tours' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+              )}
+            >
+              Туры
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Search bar */}
-      <div className="bg-white px-4 pt-3 pb-2 mt-3 border-b border-gray-100 shadow-sm">
+      <div className="bg-white px-4 pt-2 pb-2 border-b border-gray-100">
         <div className="max-w-2xl mx-auto relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-colors"
-            placeholder="Поиск мероприятий..."
+            placeholder={tab === 'tours' ? 'Поиск туров...' : 'Поиск мероприятий...'}
           />
         </div>
       </div>
@@ -105,10 +143,10 @@ export default function HomePage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             )}
           >
-            <span className="text-base leading-none">🎯</span>
-            Все
+            <span className="text-base leading-none">{tab === 'tours' ? '🗺️' : '🎯'}</span>
+            {tab === 'tours' ? 'Все туры' : 'Все'}
           </button>
-          {categories.map((cat) => (
+          {visibleCategories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
@@ -142,8 +180,10 @@ export default function HomePage() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <div className="text-5xl mb-3">🔍</div>
-            <p className="font-semibold text-gray-500">Мероприятий не найдено</p>
+            <div className="text-5xl mb-3">{tab === 'tours' ? '🏕️' : '🔍'}</div>
+            <p className="font-semibold text-gray-500">
+              {tab === 'tours' ? 'Туров не найдено' : 'Мероприятий не найдено'}
+            </p>
             <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
             {!isAuthenticated && (
               <button onClick={() => navigate('/register')} className="mt-4 btn-primary text-sm">

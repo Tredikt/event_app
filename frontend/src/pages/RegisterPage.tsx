@@ -1,6 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { Loader, MapPin } from 'lucide-react'
+import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { authApi, type RegisterData } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
@@ -10,8 +11,12 @@ export default function RegisterPage() {
   const { setAuth } = useAuthStore()
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterData & { confirm_password: string }>()
   const password = watch('password')
+  const [agreed, setAgreed] = useState(false)
+  const [agreeError, setAgreeError] = useState(false)
 
   const onSubmit = async (data: RegisterData & { confirm_password: string }) => {
+    if (!agreed) { setAgreeError(true); return }
+    setAgreeError(false)
     const { confirm_password, ...registerData } = data
     try {
       const { data: token } = await authApi.register(registerData)
@@ -91,6 +96,25 @@ export default function RegisterPage() {
                 className="input"
               />
               {errors.confirm_password && <p className="text-xs text-red-500 mt-1">{errors.confirm_password.message}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setAgreeError(false) }}
+                  className="mt-0.5 w-4 h-4 accent-blue-600 flex-shrink-0"
+                />
+                <span className="text-sm text-gray-600">
+                  Я соглашаюсь с{' '}
+                  <Link to="/privacy" target="_blank" className="text-blue-700 hover:underline font-medium">
+                    политикой конфиденциальности
+                  </Link>{' '}
+                  и даю согласие на обработку персональных данных
+                </span>
+              </label>
+              {agreeError && <p className="text-xs text-red-500 pl-6">Необходимо дать согласие</p>}
             </div>
 
             <button type="submit" disabled={isSubmitting} className="btn-primary w-full">

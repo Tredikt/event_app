@@ -18,7 +18,8 @@
     "react-hook-form": "^7.53.0",
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.447.0",
-    "clsx": "^2.1.1"
+    "clsx": "^2.1.1",
+    "react-easy-crop": "^5.4.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.10",
