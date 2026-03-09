@@ -5,10 +5,12 @@ import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { getServerData } from '@/serverData'
 
 export default function NewsPage() {
-  const [posts, setPosts] = useState<NewsPost[]>([])
-  const [loading, setLoading] = useState(true)
+  const initial = getServerData()
+  const [posts, setPosts] = useState<NewsPost[]>(initial.news ?? [])
+  const [loading, setLoading] = useState(!initial.news)
   const [cityFilter, setCityFilter] = useState('')
   const [cityInput, setCityInput] = useState('')
   const { user } = useAuthStore()

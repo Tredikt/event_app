@@ -9,6 +9,7 @@ import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
+import { getServerData } from '@/serverData'
 
 type View = 'grid' | 'map'
 type Tab = 'events' | 'tours'
@@ -16,9 +17,10 @@ type Tab = 'events' | 'tours'
 const TOURS_CATEGORIES = ['Спорт', 'Развлечения', 'Творчество', 'Обучение', 'Отдых']
 
 export default function HomePage() {
-  const [events, setEvents] = useState<EventList[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  const initial = getServerData()
+  const [events, setEvents] = useState<EventList[]>(initial.events ?? [])
+  const [categories, setCategories] = useState<Category[]>(initial.categories ?? [])
+  const [loading, setLoading] = useState(!initial.events)
   const [view, setView] = useState<View>('grid')
   const [tab, setTab] = useState<Tab>('events')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
