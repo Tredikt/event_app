@@ -12,9 +12,7 @@ import clsx from 'clsx'
 import { getServerData } from '@/serverData'
 
 type View = 'grid' | 'map'
-type Tab = 'events' | 'tours'
-
-const TOURS_CATEGORIES = ['Спорт', 'Развлечения', 'Творчество', 'Обучение', 'Отдых']
+type Tab = 'events' | 'catalog'
 
 export default function HomePage() {
   const initial = getServerData()
@@ -33,10 +31,6 @@ export default function HomePage() {
     eventsApi.getCategories().then((r) => setCategories(r.data))
   }, [])
 
-  const visibleCategories = tab === 'tours'
-    ? categories.filter((c) => TOURS_CATEGORIES.includes(c.name))
-    : categories
-
   const fetchEvents = useCallback(async () => {
     setLoading(true)
     try {
@@ -44,7 +38,7 @@ export default function HomePage() {
         category_id: selectedCategory ?? undefined,
         search: search || undefined,
         only_available: onlyAvailable,
-        is_tour: tab === 'tours',
+        is_tour: tab === 'catalog',
       })
       setEvents(data)
     } catch {
@@ -109,13 +103,13 @@ export default function HomePage() {
               Мероприятия
             </button>
             <button
-              onClick={() => setTab('tours')}
+              onClick={() => setTab('catalog')}
               className={clsx(
                 'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
-                tab === 'tours' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                tab === 'catalog' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
               )}
             >
-              Туры
+              Каталог
             </button>
           </div>
         </div>
@@ -129,7 +123,7 @@ export default function HomePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-colors"
-            placeholder={tab === 'tours' ? 'Поиск туров...' : 'Поиск мероприятий...'}
+            placeholder={tab === 'catalog' ? 'Поиск в каталоге...' : 'Поиск мероприятий...'}
           />
         </div>
       </div>
@@ -146,10 +140,10 @@ export default function HomePage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             )}
           >
-            <span className="text-base leading-none">{tab === 'tours' ? '🗺️' : '🎯'}</span>
-            {tab === 'tours' ? 'Все туры' : 'Все'}
+            <span className="text-base leading-none">{tab === 'catalog' ? '🗂️' : '🎯'}</span>
+            {tab === 'catalog' ? 'Весь каталог' : 'Все'}
           </button>
-          {visibleCategories.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
@@ -183,9 +177,9 @@ export default function HomePage() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <div className="text-5xl mb-3">{tab === 'tours' ? '🏕️' : '🔍'}</div>
+            <div className="text-5xl mb-3">{tab === 'catalog' ? '🗂️' : '🔍'}</div>
             <p className="font-semibold text-gray-500">
-              {tab === 'tours' ? 'Туров не найдено' : 'Мероприятий не найдено'}
+              {tab === 'catalog' ? 'В каталоге ничего не найдено' : 'Мероприятий не найдено'}
             </p>
             <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
             {!isAuthenticated && (

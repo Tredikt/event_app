@@ -23,8 +23,9 @@ from app.models import (  # noqa: F401 — register all models with Base.metadat
     OrganizerSubscription,
     User,
     NewsPost,
+    Review,
 )
-from app.routers import auth, events, notifications, telegram, news
+from app.routers import auth, events, notifications, telegram, news, users
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -111,6 +112,21 @@ async def migrate_schema():
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100)"
         ))
+        await conn.execute(text(
+            "ALTER TABLE events ALTER COLUMN date DROP NOT NULL"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS reviews (
+                id SERIAL PRIMARY KEY,
+                reviewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                organizer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                text TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                UNIQUE(reviewer_id, event_id)
+            )
+        """))
 
 
 @asynccontextmanager
@@ -172,6 +188,7 @@ app.include_router(events.router)
 app.include_router(notifications.router)
 app.include_router(telegram.router)
 app.include_router(news.router)
+app.include_router(users.router)
 
 
 @app.get("/health")

@@ -47,7 +47,7 @@ export default function EventDetailPage() {
     if (!event || !isAuthenticated || !user) return
     if (event.organizer.id === user.id) {
       eventsApi.getParticipants(event.id).then((r) => setParticipants(r.data))
-      const isPast = new Date(event.date) < new Date()
+      const isPast = event.date ? new Date(event.date) < new Date() : false
       if (isPast) {
         eventsApi.getAttendance(event.id).then((r) => setAttendance(r.data)).catch(() => {})
       }
@@ -74,7 +74,7 @@ export default function EventDetailPage() {
   }
 
   const isOrganizer = user?.id === event.organizer.id
-  const isPast = new Date(event.date) < new Date()
+  const isPast = event.date ? new Date(event.date) < new Date() : false
   const fillPercent = (event.participants_count / event.capacity) * 100
 
   const toggleAttended = (userId: number) => {
@@ -303,10 +303,12 @@ export default function EventDetailPage() {
               <h1 className="text-2xl font-bold text-gray-900 mb-3">{event.title}</h1>
 
               <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Calendar className="w-4 h-4 text-blue-700 flex-shrink-0" />
-                  {format(new Date(event.date), "d MMMM yyyy, HH:mm", { locale: ru })}
-                </div>
+                {event.date && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Calendar className="w-4 h-4 text-blue-700 flex-shrink-0" />
+                    {format(new Date(event.date), "d MMMM yyyy, HH:mm", { locale: ru })}
+                  </div>
+                )}
                 <div className="flex items-start gap-2 text-sm text-gray-600">
                   <MapPin className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
                   {event.address}
@@ -375,7 +377,15 @@ export default function EventDetailPage() {
               )}
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">Организатор</p>
-                <p className="font-medium text-sm">{event.organizer.first_name} {event.organizer.last_name}</p>
+                <Link to={`/users/${event.organizer.id}`} className="font-medium text-sm hover:text-blue-700 transition-colors">
+                  {event.organizer.first_name} {event.organizer.last_name}
+                </Link>
+                <div className="flex items-center gap-1">
+                  {[1,2,3,4,5].map(i => (
+                    <span key={i} className={`text-xs ${i <= Math.round(event.organizer.rating) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
+                  ))}
+                  <span className="text-xs text-gray-500">{event.organizer.rating.toFixed(1)}</span>
+                </div>
                 {event.organizer.telegram_username && (
                   <a
                     href={`https://t.me/${event.organizer.telegram_username}`}

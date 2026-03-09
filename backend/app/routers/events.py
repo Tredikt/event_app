@@ -62,13 +62,18 @@ async def list_events(
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["Cache-Control"] = "no-store"
+    catalog_mode = is_tour is True
     query = (
         select(Event)
         .options(selectinload(Event.category), selectinload(Event.organizer))
         .where(Event.status == EventStatus.active)
-        .where(Event.date >= datetime.utcnow())
     )
+    # Для обычных мероприятий показываем только будущие; каталог не имеет дат
+    if not catalog_mode:
+        query = query.where(
+            or_(Event.date >= datetime.utcnow(), Event.date.is_(None))
+        ).where(Event.is_tour == False)  # noqa: E712
     if category_id:
         query = query.where(Event.category_id == category_id)
     if date_from:
@@ -87,7 +92,11 @@ async def list_events(
         )
     if is_tour is not None:
         query = query.where(Event.is_tour == is_tour)
-    query = query.order_by(Event.date.asc()).offset(skip).limit(limit)
+    # Каталог — по дате создания (свежее первым), мероприятия — по дате события
+    if catalog_mode:
+        query = query.order_by(Event.created_at.desc()).offset(skip).limit(limit)
+    else:
+        query = query.order_by(Event.date.asc()).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -122,7 +131,7 @@ async def create_event(
     _notify_kwargs = dict(
         event_id=full_event.id,
         event_title=full_event.title,
-        event_date=full_event.date,
+        event_date=full_event.date or datetime.utcnow(),
         event_address=full_event.address,
         category_id=full_event.category_id,
         category_name=full_event.category.name,

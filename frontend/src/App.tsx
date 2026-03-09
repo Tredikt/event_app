@@ -18,6 +18,7 @@ const EditEventPage       = lazy(() => import('@/pages/EditEventPage'))
 const ProfilePage         = lazy(() => import('@/pages/ProfilePage'))
 const MyEventsPage        = lazy(() => import('@/pages/MyEventsPage'))
 const ConnectTelegramPage = lazy(() => import('@/pages/ConnectTelegramPage'))
+const OrganizerPage       = lazy(() => import('@/pages/OrganizerPage'))
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/news" element={<NewsPage />} />
           <Route path="/tours" element={<Navigate to="/" replace />} />
           <Route path="/events/:id" element={<EventDetailPage />} />
+          <Route path="/users/:id" element={<Suspense fallback={null}><OrganizerPage /></Suspense>} />
           <Route path="/events/new" element={
             <PrivateRoute>
               <Suspense fallback={null}><CreateEventPage /></Suspense>

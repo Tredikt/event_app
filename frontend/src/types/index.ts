@@ -32,7 +32,7 @@ export interface Event {
   id: number
   title: string
   description: string
-  date: string
+  date: string | null
   capacity: number
   participants_count: number
   address: string
@@ -50,7 +50,7 @@ export interface Event {
 export interface EventList {
   id: number
   title: string
-  date: string
+  date: string | null
   capacity: number
   participants_count: number
   address: string

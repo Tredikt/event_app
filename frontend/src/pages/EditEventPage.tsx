@@ -45,7 +45,7 @@ export default function EditEventPage() {
           defaultValues={{
             title: event.title,
             description: event.description,
-            date: new Date(event.date).toISOString().slice(0, 16),
+            date: event.date ? new Date(event.date).toISOString().slice(0, 16) : undefined,
             capacity: event.capacity,
             address: event.address,
             latitude: event.latitude ?? undefined,

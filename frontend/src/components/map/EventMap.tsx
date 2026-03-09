@@ -100,7 +100,7 @@ export default function EventMap({
       .filter((e) => e.latitude && e.longitude)
       .forEach((event) => {
         const color = event.is_full ? '#9CA3AF' : event.category.color
-        const dateStr = format(new Date(event.date), 'd MMM, HH:mm', { locale: ru })
+        const dateStr = event.date ? format(new Date(event.date), 'd MMM, HH:mm', { locale: ru }) : ''
         const fullBadge = event.is_full
           ? ' • <span style="color:#EF4444;">Мест нет</span>'
           : ''

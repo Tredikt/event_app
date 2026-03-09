@@ -20,6 +20,11 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
     defaultValues: defaultValues || { capacity: 10 },
   })
 
+  const isCatalog = useWatch({ control, name: 'is_tour' })
+  const dateValue = useWatch({ control, name: 'date' })
+  const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
+  const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
+
   const [mapPin, setMapPin] = useState<[number, number] | null>(
     defaultValues?.latitude && defaultValues?.longitude
       ? [defaultValues.latitude, defaultValues.longitude]
@@ -29,12 +34,9 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(defaultImageUrl || null)
+  const [imageError, setImageError] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
-  const dateValue = useWatch({ control, name: 'date' })
-  const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
 
   const { onChange: rhfAddressOnChange, ...addressRest } = register('address', { required: 'Обязательное поле' })
 
@@ -43,6 +45,7 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
     if (!file) return
     setImageFile(file)
     setImagePreview(URL.createObjectURL(file))
+    setImageError(false)
   }
 
   const removeImage = () => {
@@ -63,17 +66,12 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
     rhfAddressOnChange(e)
     const value = e.target.value
     if (suggestTimer.current) clearTimeout(suggestTimer.current)
-    if (!value || value.length < 3) {
-      setSuggestions([])
-      return
-    }
+    if (!value || value.length < 3) { setSuggestions([]); return }
     suggestTimer.current = setTimeout(async () => {
       try {
         const results = await nominatimSearch(value)
         setSuggestions(results.map((r) => r.display_name))
-      } catch {
-        setSuggestions([])
-      }
+      } catch { setSuggestions([]) }
     }, 400)
   }
 
@@ -83,23 +81,19 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
     geocodeAddressValue(s)
   }
 
+  const setPin = (lat: number, lon: number) => {
+    setValue('latitude', lat, { shouldValidate: true })
+    setValue('longitude', lon)
+    setMapPin([lat, lon])
+  }
+
   const geocodeAddressValue = async (addr: string) => {
     if (!addr) return
     setGeocoding(true)
     try {
       const results = await nominatimSearch(addr, 1)
-      if (results.length > 0) {
-        const lat = parseFloat(results[0].lat)
-        const lon = parseFloat(results[0].lon)
-        setValue('latitude', lat)
-        setValue('longitude', lon)
-        setMapPin([lat, lon])
-      }
-    } catch {
-      // silent
-    } finally {
-      setGeocoding(false)
-    }
+      if (results.length > 0) setPin(parseFloat(results[0].lat), parseFloat(results[0].lon))
+    } catch { /* silent */ } finally { setGeocoding(false) }
   }
 
   const geocodeAddress = () => {
@@ -108,9 +102,7 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   }
 
   const handleMapClick = async (lat: number, lng: number) => {
-    setValue('latitude', lat)
-    setValue('longitude', lng)
-    setMapPin([lat, lng])
+    setPin(lat, lng)
     setSuggestions([])
     try {
       const params = new URLSearchParams({ lat: String(lat), lon: String(lng), format: 'json', 'accept-language': 'ru' })
@@ -118,27 +110,39 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
         headers: { 'User-Agent': 'communicate-site/1.0' },
       })
       const data = await resp.json()
-      if (data.display_name) {
-        setValue('address', data.display_name)
-      }
-    } catch {
-      // silent
-    }
+      if (data.display_name) setValue('address', data.display_name)
+    } catch { /* silent */ }
   }
 
+  const handleFormSubmit = handleSubmit((data) => {
+    if (!imagePreview) { setImageError(true); return }
+    return onSubmit(data, imageFile ?? undefined)
+  })
+
   return (
-    <form onSubmit={handleSubmit((data) => onSubmit(data, imageFile ?? undefined))} className="space-y-5">
+    <form onSubmit={handleFormSubmit} className="space-y-5">
+
+      {/* Catalog toggle — first, drives the rest of the form */}
+      <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border border-gray-200">
+        <span className="text-2xl">🗂️</span>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-900">Добавить в каталог</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {isCatalog
+              ? <><span className="font-medium text-blue-700">Каталог</span> — постоянное предложение (тур, секция, клуб). Без конкретной даты.</>
+              : <><span className="font-medium text-gray-700">Мероприятие</span> — разовое событие с датой в общей ленте.</>
+            }
+          </p>
+        </div>
+        <input type="checkbox" {...register('is_tour')} className="w-4 h-4 accent-blue-700" />
+      </label>
 
       {/* Image picker */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Обложка мероприятия</label>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleImageChange}
-        />
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Обложка <span className="text-red-500">*</span>
+        </label>
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
         {imagePreview ? (
           <div className="relative rounded-xl overflow-hidden border border-gray-200" style={{ height: '180px' }}>
             <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
@@ -160,24 +164,29 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
         ) : (
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full h-32 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-blue-700"
+            onClick={() => { fileInputRef.current?.click(); setImageError(false) }}
+            className={`w-full h-32 rounded-xl border-2 border-dashed transition-colors flex flex-col items-center justify-center gap-2 ${
+              imageError
+                ? 'border-red-400 bg-red-50 text-red-400'
+                : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-400 hover:text-blue-700'
+            }`}
           >
             <Camera className="w-6 h-6" />
             <span className="text-sm font-medium">Добавить обложку</span>
             <span className="text-xs">JPG, PNG до 5 МБ</span>
           </button>
         )}
+        {imageError && <p className="text-xs text-red-500 mt-1">Добавьте обложку мероприятия</p>}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Название *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Название <span className="text-red-500">*</span></label>
         <input {...register('title', { required: 'Обязательное поле' })} className="input" placeholder="Например: Волейбол в парке" />
         {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Описание *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Описание <span className="text-red-500">*</span></label>
         <textarea
           {...register('description', { required: 'Обязательное поле' })}
           className="input resize-none"
@@ -188,31 +197,30 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Дата и время *</label>
-          <Controller
-            name="date"
-            control={control}
-            rules={{ required: 'Обязательное поле' }}
-            render={({ field }) => (
-              <IosDatePicker
-                value={field.value || ''}
-                onChange={field.onChange}
-                error={!!errors.date}
-              />
+        {/* Date — only for regular events */}
+        {!isCatalog && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Дата и время <span className="text-red-500">*</span></label>
+            <Controller
+              name="date"
+              control={control}
+              rules={{ required: 'Обязательное поле' }}
+              render={({ field }) => (
+                <IosDatePicker value={field.value || ''} onChange={field.onChange} error={!!errors.date} />
+              )}
+            />
+            {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
+            {dayOfWeek && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">День недели:</span>
+                <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
+              </div>
             )}
-          />
-          {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
-          {dayOfWeek && (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">День недели:</span>
-              <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Макс. участников *</label>
+        <div className={isCatalog ? 'sm:col-span-2 sm:max-w-[calc(50%-8px)]' : ''}>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Макс. участников <span className="text-red-500">*</span></label>
           <input
             type="number"
             min={2}
@@ -225,7 +233,7 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Категория *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Категория <span className="text-red-500">*</span></label>
         <select {...register('category_id', { required: 'Выберите категорию', valueAsNumber: true })} className="input">
           <option value="">Выберите категорию</option>
           {categories.map((c) => (
@@ -236,7 +244,7 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Адрес *</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Адрес <span className="text-red-500">*</span></label>
         <div className="flex gap-2">
           <div className="relative flex-1 min-w-0">
             <input
@@ -274,7 +282,13 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
         <p className="text-xs text-gray-400 mt-1">Нажмите «Найти» или кликните на карте для выбора точки</p>
       </div>
 
-      <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: '260px' }}>
+      {/* Hidden latitude — drives map pin validation */}
+      <input type="hidden" {...register('latitude', { required: true })} />
+
+      <div
+        className={`rounded-xl overflow-hidden border transition-colors ${errors.latitude && !mapPin ? 'border-red-400' : 'border-gray-200'}`}
+        style={{ height: '260px' }}
+      >
         <ClientOnly>
           <EventMap
             center={mapPin || [47.2357, 39.7015]}
@@ -285,20 +299,9 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
           />
         </ClientOnly>
       </div>
-
-      {/* Tour toggle */}
-      <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer group">
-        <span className="text-2xl">🏕️</span>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900">Выезд загород / тур</p>
-          <p className="text-xs text-gray-500">Мероприятие проводится за городом</p>
-        </div>
-        <input
-          type="checkbox"
-          {...register('is_tour')}
-          className="w-4 h-4 accent-blue-700"
-        />
-      </label>
+      {errors.latitude && !mapPin && (
+        <p className="text-xs text-red-500 -mt-3">Укажите точку на карте — нажмите «Найти» или кликните на карту</p>
+      )}
 
       <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
         {isSubmitting ? <><Loader className="w-4 h-4 animate-spin" />Сохранение...</> : submitLabel}

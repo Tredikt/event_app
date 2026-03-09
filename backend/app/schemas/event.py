@@ -21,7 +21,7 @@ class CategoryOut(BaseModel):
 class EventCreate(BaseModel):
     title: str
     description: str
-    date: datetime
+    date: Optional[datetime] = None  # None для каталожных позиций (is_tour=True)
     capacity: int
     address: str
     latitude: Optional[float] = None
@@ -47,7 +47,7 @@ class EventOut(BaseModel):
     id: int
     title: str
     description: str
-    date: datetime
+    date: Optional[datetime] = None
     capacity: int
     participants_count: int
     address: str
@@ -67,7 +67,7 @@ class EventOut(BaseModel):
 class EventListOut(BaseModel):
     id: int
     title: str
-    date: datetime
+    date: Optional[datetime] = None
     capacity: int
     participants_count: int
     address: str

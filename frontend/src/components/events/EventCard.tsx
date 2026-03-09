@@ -20,7 +20,7 @@ function shortAddress(address: string): string {
 
 export default function EventCard({ event, compact = false, wide = false }: Props) {
   const fillPercent = (event.participants_count / event.capacity) * 100
-  const dateStr = format(new Date(event.date), 'd MMM, HH:mm', { locale: ru })
+  const dateStr = event.date ? format(new Date(event.date), 'd MMM, HH:mm', { locale: ru }) : null
 
   return (
     <Link
@@ -68,10 +68,12 @@ export default function EventCard({ event, compact = false, wide = false }: Prop
           </div>
         )}
 
-        {/* Date chip pinned to bottom-right */}
-        <div className="absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">
-          {dateStr}
-        </div>
+        {/* Date chip — hidden for catalog items */}
+        {dateStr && (
+          <div className="absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">
+            {dateStr}
+          </div>
+        )}
       </div>
 
       {/* Body */}
