@@ -35,6 +35,7 @@ class UserUpdate(BaseModel):
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
     gender: Optional[GenderEnum] = None
+    city: Optional[str] = None
 
 
 class UserPublic(BaseModel):
@@ -54,6 +55,7 @@ class UserProfile(UserPublic):
     email: Optional[str] = None
     telegram_id: Optional[int] = None
     is_admin: bool = False
+    city: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

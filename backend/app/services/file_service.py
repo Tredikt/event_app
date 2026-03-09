@@ -6,7 +6,7 @@ import uuid
 
 import aiofiles
 from fastapi import HTTPException, UploadFile
-from PIL import Image
+from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 
 register_heif_opener()
@@ -19,6 +19,7 @@ MAX_SIZE = settings.MAX_AVATAR_SIZE_MB * 1024 * 1024
 
 def _process_image(content: bytes, max_w: int, max_h: int) -> bytes:
     img = Image.open(io.BytesIO(content))
+    img = ImageOps.exif_transpose(img)  # fix iPhone/Android rotation
     img.thumbnail((max_w, max_h), Image.LANCZOS)
     if img.mode in ("RGBA", "P"):
         img = img.convert("RGB")

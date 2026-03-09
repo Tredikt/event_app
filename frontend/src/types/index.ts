@@ -24,6 +24,7 @@ export interface UserProfile extends UserPublic {
   email: string | null
   telegram_id: number | null
   is_admin: boolean
+  city: string | null
   created_at: string
 }
 

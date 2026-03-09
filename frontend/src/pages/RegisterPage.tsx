@@ -14,6 +14,29 @@ export default function RegisterPage() {
   const [agreed, setAgreed] = useState(false)
   const [agreeError, setAgreeError] = useState(false)
 
+  const detectCity = async (): Promise<string | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null)
+      navigator.geolocation.getCurrentPosition(
+        async ({ coords }) => {
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`,
+              { headers: { 'Accept-Language': 'ru' } }
+            )
+            const json = await res.json()
+            const addr = json.address || {}
+            resolve(addr.city || addr.town || addr.village || addr.county || null)
+          } catch {
+            resolve(null)
+          }
+        },
+        () => resolve(null),
+        { timeout: 5000 }
+      )
+    })
+  }
+
   const onSubmit = async (data: RegisterData & { confirm_password: string }) => {
     if (!agreed) { setAgreeError(true); return }
     setAgreeError(false)
@@ -23,6 +46,14 @@ export default function RegisterPage() {
       setAuth(token.access_token, token.user)
       toast.success('Добро пожаловать!')
       navigate('/telegram/connect')
+      // Silently detect city and save to profile
+      const city = await detectCity()
+      if (city) {
+        try {
+          const { data: updated } = await authApi.updateMe({ city })
+          useAuthStore.getState().updateUser(updated)
+        } catch { /* ignore */ }
+      }
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'Ошибка регистрации')
     }

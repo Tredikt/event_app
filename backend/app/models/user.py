@@ -28,6 +28,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     telegram_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, nullable=True)
     telegram_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     rating: Mapped[float] = mapped_column(Float, default=5.0, server_default="5.0")

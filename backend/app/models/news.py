@@ -16,6 +16,7 @@ class NewsPost(Base):
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     author: Mapped["User | None"] = relationship("User")

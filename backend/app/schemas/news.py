@@ -25,6 +25,7 @@ class NewsPostOut(BaseModel):
     image_url: Optional[str] = None
     city: Optional[str] = None
     author: Optional[NewsAuthor] = None
+    event_id: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

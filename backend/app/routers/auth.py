@@ -85,6 +85,8 @@ async def update_me(
         current_user.email = data.email
     if data.gender:
         current_user.gender = data.gender
+    if data.city is not None:
+        current_user.city = data.city or None
     await db.commit()
     await db.refresh(current_user)
     return UserProfile.model_validate(current_user)

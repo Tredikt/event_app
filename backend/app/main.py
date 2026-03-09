@@ -96,6 +96,12 @@ async def migrate_schema():
                 UNIQUE(event_id, user_id)
             )
         """))
+        await conn.execute(text(
+            "ALTER TABLE news_posts ADD COLUMN IF NOT EXISTS event_id INTEGER REFERENCES events(id) ON DELETE SET NULL"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100)"
+        ))
 
 
 @asynccontextmanager

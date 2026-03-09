@@ -7,8 +7,8 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Application, MessageHandler, CallbackQueryHandler, filters
 
 from sqlalchemy import select
 
@@ -52,8 +52,8 @@ _bot_username: Optional[str] = None
 # Shared PTB Bot instance
 _bot = None
 
-# Admin post drafts: chat_id -> {step, title, content, city}
-# steps: 'title' | 'content' | 'city' | 'photo'
+# Admin post drafts: chat_id -> {step, title, content, city, photo_bytes, event_id}
+# steps: 'title' | 'content' | 'city' | 'photo' | 'event_id'
 _admin_draft: dict[int, dict] = {}
 
 
@@ -183,6 +183,7 @@ async def _create_news_post(chat_id: int, draft: dict, photo_bytes: Optional[byt
             city=draft.get("city") or None,
             image_url=image_url,
             author_id=user.id if user else None,
+            event_id=draft.get("event_id"),
         )
         db.add(post)
         await db.commit()
@@ -257,14 +258,44 @@ async def _handle_admin_step(update: Update) -> bool:
 
     if step == "photo":
         if text == "/skip":
-            await _create_news_post(chat_id, draft)
-            del _admin_draft[chat_id]
-            await send_telegram_message(chat_id, "✅ <b>Новость опубликована!</b>")
+            await _ask_event_link(chat_id, draft)
         else:
             await send_telegram_message(chat_id, "⚠️ Отправьте фото или /skip чтобы пропустить.")
         return True
 
+    if step == "event_id":
+        if text == "/skip":
+            await _create_news_post(chat_id, draft)
+            del _admin_draft[chat_id]
+            await send_telegram_message(chat_id, "✅ <b>Новость опубликована!</b>")
+        else:
+            try:
+                event_id = int(text.strip())
+                draft["event_id"] = event_id
+            except ValueError:
+                await send_telegram_message(chat_id, "⚠️ Введите числовой ID мероприятия или /skip:")
+                return True
+            await _create_news_post(chat_id, draft)
+            del _admin_draft[chat_id]
+            await send_telegram_message(chat_id, "✅ <b>Новость с привязкой к мероприятию опубликована!</b>")
+        return True
+
     return False
+
+
+async def _ask_event_link(chat_id: int, draft: dict) -> None:
+    """Send inline keyboard asking whether to link to an event."""
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("Пропустить", callback_data=f"news_event:skip:{chat_id}"),
+        InlineKeyboardButton("Привязать к мероприятию", callback_data=f"news_event:link:{chat_id}"),
+    ]])
+    if _bot:
+        await _bot.send_message(
+            chat_id=chat_id,
+            text="🔗 <b>Привязать новость к мероприятию?</b>",
+            parse_mode="HTML",
+            reply_markup=keyboard,
+        )
 
 
 async def _handle_admin_photo(update: Update) -> bool:
@@ -291,9 +322,8 @@ async def _handle_admin_photo(update: Update) -> bool:
     except Exception as exc:
         logger.warning("Could not download photo: %s", exc)
 
-    await _create_news_post(chat_id, draft, photo_bytes)
-    del _admin_draft[chat_id]
-    await send_telegram_message(chat_id, "✅ <b>Новость с фото опубликована!</b>")
+    draft["_photo_bytes"] = photo_bytes
+    await _ask_event_link(chat_id, draft)
     return True
 
 
@@ -412,9 +442,43 @@ async def _ptb_message_handler(update: Update, context) -> None:
         await send_telegram_message(chat_id, f"🆔 Ваш Telegram ID: <code>{chat_id}</code>")
 
 
+async def _ptb_callback_handler(update: Update, context) -> None:
+    query = update.callback_query
+    if not query:
+        return
+    await query.answer()
+
+    data = query.data or ""
+    if not data.startswith("news_event:"):
+        return
+
+    _, action, chat_id_str = data.split(":", 2)
+    chat_id = int(chat_id_str)
+
+    if not _is_admin(chat_id):
+        return
+
+    draft = _admin_draft.get(chat_id)
+    if not draft:
+        return
+
+    if action == "skip":
+        photo_bytes = draft.pop("_photo_bytes", None)
+        await _create_news_post(chat_id, draft, photo_bytes)
+        del _admin_draft[chat_id]
+        await send_telegram_message(chat_id, "✅ <b>Новость опубликована!</b>")
+    elif action == "link":
+        draft["step"] = "event_id"
+        await send_telegram_message(
+            chat_id,
+            "🔢 <b>Введите ID мероприятия</b> (число из адреса страницы, например 42):\n\n/skip — пропустить"
+        )
+
+
 def get_ptb_app() -> Application:
     global _bot
     ptb = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
     ptb.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, _ptb_message_handler))
+    ptb.add_handler(CallbackQueryHandler(_ptb_callback_handler))
     _bot = ptb.bot
     return ptb

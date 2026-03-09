@@ -28,7 +28,7 @@ export default function ProfilePage() {
 
   const onSave = async (data: Partial<UserProfile>) => {
     try {
-      const { data: updated } = await authApi.updateMe(data)
+      const { data: updated } = await authApi.updateMe(data as any)
       updateUser(updated)
       toast.success('Профиль обновлён')
     } catch {

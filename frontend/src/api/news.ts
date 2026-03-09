@@ -14,6 +14,7 @@ export interface NewsPost {
   image_url?: string
   city?: string
   author: NewsAuthor
+  event_id?: number
   created_at: string
 }
 

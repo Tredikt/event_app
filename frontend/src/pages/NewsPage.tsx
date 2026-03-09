@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Search, MapPin, Trash2, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Search, MapPin, Trash2, X, ExternalLink } from 'lucide-react'
 import { newsApi, type NewsPost } from '@/api/news'
 import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
@@ -125,6 +126,15 @@ export default function NewsPage() {
                     </span>
                   )}
                   <span>{format(new Date(post.created_at), 'd MMMM yyyy', { locale: ru })}</span>
+                  {post.event_id && (
+                    <Link
+                      to={`/events/${post.event_id}`}
+                      className="ml-auto flex items-center gap-1 text-blue-600 font-medium hover:text-blue-800"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      К мероприятию
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
