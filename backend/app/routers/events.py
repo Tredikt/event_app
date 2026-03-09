@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Response
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -43,13 +43,15 @@ _TOURS_CATEGORIES = {"Спорт", "Развлечения", "Творчеств
 
 
 @router.get("/categories", response_model=list[CategoryOut])
-async def get_categories(db: AsyncSession = Depends(get_db)):
+async def get_categories(response: Response, db: AsyncSession = Depends(get_db)):
+    response.headers["Cache-Control"] = "public, max-age=3600"
     result = await db.execute(select(EventCategory))
     return result.scalars().all()
 
 
 @router.get("", response_model=list[EventListOut])
 async def list_events(
+    response: Response,
     category_id: Optional[int] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
@@ -60,6 +62,7 @@ async def list_events(
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
 ):
+    response.headers["Cache-Control"] = "public, max-age=60"
     query = (
         select(Event)
         .options(selectinload(Event.category), selectinload(Event.organizer))

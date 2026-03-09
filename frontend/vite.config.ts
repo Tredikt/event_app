@@ -13,6 +13,16 @@ export default defineConfig({
   build: {
     outDir: 'dist/client',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'react-hot-toast', 'clsx'],
+          'form-vendor': ['react-hook-form', 'react-easy-crop'],
+          'data-vendor': ['axios', 'zustand', 'date-fns'],
+        },
+      },
+    },
   },
   ssr: {
     noExternal: ['react-hot-toast'],

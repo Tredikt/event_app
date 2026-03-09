@@ -10,9 +10,6 @@
     @apply font-sans text-gray-900 bg-gray-50;
     margin: 0;
   }
-  :root {
-    --leaflet-z: 1;
-  }
 }
 
 @layer components {
@@ -57,12 +54,3 @@
 .news-content pre { background: #f3f4f6; padding: 0.75rem; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 0.85em; }
 .news-content a { color: #1d4ed8; text-decoration: underline; }
 
-/* Leaflet overrides */
-.leaflet-container {
-  font-family: inherit;
-  border-radius: 1rem;
-}
-.leaflet-popup-content-wrapper {
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-}

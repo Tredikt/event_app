@@ -18,9 +18,11 @@ app.use('/api', createProxyMiddleware({
   on: { error: (err, req, res) => res.status(502).send('Backend unavailable') },
 }))
 
+// /uploads — must keep full path (Express strips prefix, so restore it)
 app.use('/uploads', createProxyMiddleware({
   target: BACKEND_URL,
   changeOrigin: true,
+  pathRewrite: (path) => '/uploads' + path,
   on: { error: (err, req, res) => res.status(502).send('Backend unavailable') },
 }))
 

@@ -1,7 +1,7 @@
 """News posts router."""
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,9 +16,11 @@ router = APIRouter(prefix="/news", tags=["news"])
 
 @router.get("", response_model=list[NewsPostOut])
 async def list_news(
+    response: Response,
     city: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
+    response.headers["Cache-Control"] = "public, max-age=60"
     q = select(NewsPost).options(selectinload(NewsPost.author)).order_by(desc(NewsPost.created_at))
     if city:
         q = q.where(NewsPost.city.ilike(f"%{city}%"))
