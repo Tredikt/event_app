@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Communicate — платформа мероприятий",
+    title="Повод — платформа мероприятий",
     version="1.0.0",
     lifespan=lifespan,
 )

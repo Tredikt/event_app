@@ -4,12 +4,17 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  // Read .env from the monorepo root instead of the frontend/ directory
   envDir: path.resolve(__dirname, '..'),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  build: {
+    outDir: 'dist/client',
+  },
+  ssr: {
+    noExternal: ['react-hot-toast'],
   },
   server: {
     port: 5173,

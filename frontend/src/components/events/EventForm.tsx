@@ -4,6 +4,7 @@ import { MapPin, Loader, Camera, X } from 'lucide-react'
 import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
+import ClientOnly from '@/components/ClientOnly'
 import IosDatePicker from '@/components/ui/IosDatePicker'
 
 interface Props {
@@ -274,13 +275,15 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
       </div>
 
       <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: '260px' }}>
-        <EventMap
-          center={mapPin || [47.2357, 39.7015]}
-          zoom={mapPin ? 15 : 12}
-          height="260px"
-          onMapClick={handleMapClick}
-          selectedPin={mapPin}
-        />
+        <ClientOnly>
+          <EventMap
+            center={mapPin || [47.2357, 39.7015]}
+            zoom={mapPin ? 15 : 12}
+            height="260px"
+            onMapClick={handleMapClick}
+            selectedPin={mapPin}
+          />
+        </ClientOnly>
       </div>
 
       {/* Tour toggle */}

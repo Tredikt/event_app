@@ -5,6 +5,7 @@ import { eventsApi } from '@/api/events'
 import type { EventList, Category } from '@/types'
 import EventCard from '@/components/events/EventCard'
 import EventMap from '@/components/map/EventMap'
+import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -64,7 +65,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col bg-gray-50" style={{ height: 'calc(100dvh - 64px)' }}>
         <div className="flex-1 overflow-hidden">
-          <EventMap events={events} height="100%" />
+          <ClientOnly><EventMap events={events} height="100%" /></ClientOnly>
         </div>
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40">
           <button

@@ -54,7 +54,7 @@ export default function NewsPage() {
                 onChange={(e) => setCityInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCitySearch()}
                 className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-colors"
-                placeholder="Фильтр по городу..."
+                placeholder="Город..."
                 style={{ fontSize: '16px' }}
               />
             </div>

@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "dev": "node server.js",
+    "build": "tsc && vite build && vite build --ssr src/entry-server.tsx --outDir dist/server --emptyOutDir",
+    "preview": "NODE_ENV=production node server.js"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -19,7 +19,9 @@
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.447.0",
     "clsx": "^2.1.1",
-    "react-easy-crop": "^5.4.0"
+    "react-easy-crop": "^5.4.0",
+    "express": "^4.21.0",
+    "http-proxy-middleware": "^3.0.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.10",

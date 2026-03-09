@@ -53,8 +53,10 @@ services:
       args:
         - VITE_YANDEX_MAPS_API_KEY=${VITE_YANDEX_MAPS_API_KEY}
     restart: unless-stopped
+    environment:
+      - BACKEND_URL=http://backend:8000
     ports:
-      - "${FRONTEND_PORT}:80"
+      - "${FRONTEND_PORT}:3000"
     depends_on:
       - backend
 

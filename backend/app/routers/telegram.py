@@ -347,7 +347,7 @@ async def _ptb_message_handler(update: Update, context) -> None:
         else:
             await send_telegram_message(
                 chat_id,
-                "👋 <b>Привет! Ты попал в Досуг.</b>\n\n"
+                "👋 <b>Привет! Ты попал в Повод.</b>\n\n"
                 "Это платформа для поиска мероприятий рядом с тобой:\n"
                 "• 📍 Находи события на карте\n"
                 "• ✅ Записывайся на мероприятия\n"

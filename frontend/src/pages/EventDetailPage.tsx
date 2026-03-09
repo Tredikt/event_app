@@ -8,6 +8,7 @@ import { eventsApi } from '@/api/events'
 import { notificationsApi } from '@/api/notifications'
 import type { AttendanceParticipant, Event, Participant } from '@/types'
 import EventMap from '@/components/map/EventMap'
+import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
 import clsx from 'clsx'
 
@@ -335,13 +336,15 @@ export default function EventDetailPage() {
               <div className="px-5 pt-5 pb-3">
                 <h3 className="text-lg font-bold text-gray-900">Где вы будете</h3>
               </div>
-              <EventMap
-                events={[{ ...event }] as any}
-                center={[event.latitude, event.longitude]}
-                zoom={14}
-                height="240px"
-                interactive={false}
-              />
+              <ClientOnly>
+                <EventMap
+                  events={[{ ...event }] as any}
+                  center={[event.latitude, event.longitude]}
+                  zoom={14}
+                  height="240px"
+                  interactive={false}
+                />
+              </ClientOnly>
               <div className="p-4 space-y-2.5">
                 <button
                   onClick={() => { setRouteModal(true); setManualFrom('') }}
