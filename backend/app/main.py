@@ -30,6 +30,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class _NoTelegramWebhook(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return "/telegram/webhook" not in msg
+
+
+logging.getLogger("uvicorn.access").addFilter(_NoTelegramWebhook())
+
+
 async def seed_categories():
     from app.core.database import AsyncSessionLocal
     from sqlalchemy import select, func

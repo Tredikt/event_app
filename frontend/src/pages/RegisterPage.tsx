@@ -46,14 +46,14 @@ export default function RegisterPage() {
       setAuth(token.access_token, token.user)
       toast.success('Добро пожаловать!')
       navigate('/telegram/connect')
-      // Silently detect city and save to profile
-      const city = await detectCity()
-      if (city) {
+      // Fire & forget — don't block navigation
+      detectCity().then(async (city) => {
+        if (!city) return
         try {
           const { data: updated } = await authApi.updateMe({ city })
           useAuthStore.getState().updateUser(updated)
         } catch { /* ignore */ }
-      }
+      })
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'Ошибка регистрации')
     }

@@ -40,7 +40,9 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/telegram/connect" element={
           <PrivateRoute>
-            <Suspense fallback={null}><ConnectTelegramPage /></Suspense>
+            <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100" />}>
+              <ConnectTelegramPage />
+            </Suspense>
           </PrivateRoute>
         } />
         <Route element={<Layout />}>
