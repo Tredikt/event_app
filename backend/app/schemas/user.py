@@ -16,6 +16,11 @@ class UserRegister(BaseModel):
     gender: GenderEnum
     email: Optional[EmailStr] = None
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def empty_email_to_none(cls, v):
+        return None if v == "" else v
+
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
@@ -36,6 +41,11 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     gender: Optional[GenderEnum] = None
     city: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def empty_email_to_none(cls, v):
+        return None if v == "" else v
 
 
 class UserPublic(BaseModel):
