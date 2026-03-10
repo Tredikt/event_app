@@ -101,8 +101,8 @@ export default function NewsPage() {
         ) : (
           posts.map((post) => (
             <div key={post.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              {post.image_url && (
-                <img src={post.image_url} alt="" className="w-full h-44 object-cover" />
+              {(post.image_url || post.event_image_url) && (
+                <img src={post.image_url || post.event_image_url} alt="" className="w-full object-cover" style={{ maxHeight: '280px' }} />
               )}
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -116,7 +116,7 @@ export default function NewsPage() {
                 {/* Render Telegram HTML formatting */}
                 <div
                   className="text-sm text-gray-600 leading-relaxed news-content"
-                  dangerouslySetInnerHTML={{ __html: post.content }}
+                  dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br>') }}
                 />
                 <div className="flex items-center gap-2 pt-1 text-xs text-gray-400">
                   {post.city && (
@@ -126,16 +126,16 @@ export default function NewsPage() {
                     </span>
                   )}
                   <span>{format(new Date(post.created_at), 'd MMMM yyyy', { locale: ru })}</span>
-                  {post.event_id && (
-                    <Link
-                      to={`/events/${post.event_id}`}
-                      className="ml-auto flex items-center gap-1 text-blue-600 font-medium hover:text-blue-800"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      К мероприятию
-                    </Link>
-                  )}
                 </div>
+                {post.event_id && (
+                  <Link
+                    to={`/events/${post.event_id}`}
+                    className="flex items-center justify-center gap-2 w-full mt-1 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-sm transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    К мероприятию
+                  </Link>
+                )}
               </div>
             </div>
           ))

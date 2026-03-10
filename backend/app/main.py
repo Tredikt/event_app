@@ -138,14 +138,8 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "avatars"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "events"), exist_ok=True)
 
-    ptb = None
-    if settings.TELEGRAM_BOT_TOKEN:
-        from app.routers.telegram import get_ptb_app
-        ptb = get_ptb_app()
-        await ptb.initialize()
-        await ptb.start()
-        await ptb.updater.start_polling()
-        logger.info("Telegram bot polling started")
+    from app.routers.telegram import start_bot, stop_bot
+    await start_bot()
 
     from app.services.cron import run_cron
     cron_task = asyncio.create_task(run_cron())
@@ -158,10 +152,7 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
-    if ptb:
-        await ptb.updater.stop()
-        await ptb.stop()
-        await ptb.shutdown()
+    await stop_bot()
     await engine.dispose()
 
 

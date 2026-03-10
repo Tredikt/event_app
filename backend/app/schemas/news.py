@@ -26,6 +26,14 @@ class NewsPostOut(BaseModel):
     city: Optional[str] = None
     author: Optional[NewsAuthor] = None
     event_id: Optional[int] = None
+    event_image_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_post(cls, post) -> "NewsPostOut":
+        data = cls.model_validate(post)
+        if not data.image_url and post.event_id and post.event:
+            data.event_image_url = post.event.image_url
+        return data

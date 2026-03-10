@@ -20,3 +20,4 @@ class NewsPost(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     author: Mapped["User | None"] = relationship("User")
+    event: Mapped["Event | None"] = relationship("Event", foreign_keys=[event_id])

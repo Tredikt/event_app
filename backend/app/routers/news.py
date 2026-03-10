@@ -21,11 +21,16 @@ async def list_news(
     db: AsyncSession = Depends(get_db),
 ):
     response.headers["Cache-Control"] = "public, max-age=60"
-    q = select(NewsPost).options(selectinload(NewsPost.author)).order_by(desc(NewsPost.created_at))
+    from app.models.event import Event
+    q = (
+        select(NewsPost)
+        .options(selectinload(NewsPost.author), selectinload(NewsPost.event))
+        .order_by(desc(NewsPost.created_at))
+    )
     if city:
         q = q.where(NewsPost.city.ilike(f"%{city}%"))
     result = await db.execute(q)
-    return result.scalars().all()
+    return [NewsPostOut.from_post(p) for p in result.scalars().all()]
 
 
 @router.post("", response_model=NewsPostOut)
