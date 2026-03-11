@@ -1,11 +1,11 @@
 """Event CRUD, participation, and subscription endpoints."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Response
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -15,6 +15,7 @@ from app.models.event import (
     Event,
     EventAttendance,
     EventCategory,
+    EventImage,
     EventParticipant,
     EventStatus,
     EventSubscription,
@@ -35,7 +36,7 @@ from app.schemas.event import (
 )
 from app.services.event_notifications import dispatch_new_event_notifications
 from app.services.file_service import save_event_image
-from app.services.notifications import notify_attendance_request, notify_event_update, notify_new_participant
+from app.services.notifications import notify_attendance_request, notify_event_cancelled, notify_event_update, notify_joined_event, notify_new_participant, notify_participant_left
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -121,7 +122,7 @@ async def create_event(
 
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.category), selectinload(Event.organizer))
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
         .where(Event.id == event.id)
     )
     full_event = result.scalar_one()
@@ -149,17 +150,75 @@ async def create_event(
     return full_event
 
 
+@router.post("/{event_id}/instantiate", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+async def instantiate_catalog_event(
+    event_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a one-time event from a catalog item."""
+    result = await db.execute(
+        select(Event).options(selectinload(Event.category), selectinload(Event.organizer)).where(Event.id == event_id)
+    )
+    source = result.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if not source.is_tour:
+        raise HTTPException(status_code=400, detail="Только каталожные позиции можно использовать как шаблон")
+    if source.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав")
+
+    date_str = body.get("date")
+    if not date_str:
+        raise HTTPException(status_code=422, detail="Укажите дату")
+    try:
+        from datetime import datetime as dt
+        event_date = dt.fromisoformat(date_str.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Неверный формат даты")
+
+    new_event = Event(
+        title=source.title,
+        description=source.description,
+        date=event_date,
+        capacity=source.capacity,
+        address=source.address,
+        latitude=source.latitude,
+        longitude=source.longitude,
+        category_id=source.category_id,
+        image_url=source.image_url,
+        is_tour=False,
+        organizer_id=current_user.id,
+    )
+    db.add(new_event)
+    await db.commit()
+    await db.refresh(new_event)
+
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == new_event.id)
+    )
+    return result.scalar_one()
+
+
 @router.get("/{event_id}", response_model=EventOut)
 async def get_event(event_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.category), selectinload(Event.organizer))
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
         .where(Event.id == event_id)
     )
     event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
-    return event
+    sub_count = await db.scalar(
+        select(func.count()).where(EventSubscription.event_id == event_id)
+    ) or 0
+    out = EventOut.model_validate(event)
+    out.subscriptions_count = sub_count
+    return out
 
 
 @router.put("/{event_id}", response_model=EventOut)
@@ -181,6 +240,7 @@ async def update_event(
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     changes = []
+    is_cancellation = False
     update_data = data.model_dump(exclude_none=True)
     for field, value in update_data.items():
         old_val = getattr(event, field)
@@ -192,9 +252,9 @@ async def update_event(
                 changes.append(f"Адрес изменён на: {value}")
             elif field == "status" and value == EventStatus.cancelled:
                 changes.append("Мероприятие отменено организатором")
+                is_cancellation = True
 
     await db.commit()
-    await db.refresh(event)
 
     if changes:
         subs_result = await db.execute(
@@ -208,7 +268,28 @@ async def update_event(
             email = sub.user.email if sub.notify_email else None
             await notify_event_update(tg_id, email, event.title, change_text)
 
-    return event
+    if is_cancellation:
+        date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+        parts_result = await db.execute(
+            select(EventParticipant)
+            .options(selectinload(EventParticipant.user))
+            .where(EventParticipant.event_id == event_id)
+            .where(EventParticipant.status == ParticipantStatus.registered)
+        )
+        for p in parts_result.scalars().all():
+            asyncio.create_task(notify_event_cancelled(
+                participant_telegram_id=p.user.telegram_id,
+                event_title=event.title,
+                event_date=date_str,
+                reason="organizer",
+            ))
+
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == event_id)
+    )
+    return result.scalar_one()
 
 
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -217,13 +298,35 @@ async def delete_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    event = await db.get(Event, event_id)
+    result = await db.execute(
+        select(Event)
+        .options(
+            selectinload(Event.participants).selectinload(EventParticipant.user)
+        )
+        .where(Event.id == event_id)
+    )
+    event = result.scalar_one_or_none()
     if not event:
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+    participants_to_notify = [
+        p.user for p in event.participants if p.status == ParticipantStatus.registered
+    ]
+    title = event.title
+
     await db.delete(event)
     await db.commit()
+
+    for u in participants_to_notify:
+        asyncio.create_task(notify_event_cancelled(
+            participant_telegram_id=u.telegram_id,
+            event_title=title,
+            event_date=date_str,
+            reason="organizer",
+        ))
 
 
 @router.post("/{event_id}/image", response_model=EventOut)
@@ -235,7 +338,7 @@ async def upload_event_image(
 ):
     result = await db.execute(
         select(Event)
-        .options(selectinload(Event.category), selectinload(Event.organizer))
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
         .where(Event.id == event_id)
     )
     event = result.scalar_one_or_none()
@@ -245,10 +348,83 @@ async def upload_event_image(
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     image_url = await save_event_image(file, event_id)
-    event.image_url = image_url
+    order = len(event.images)
+    db.add(EventImage(event_id=event_id, image_url=image_url, order=order))
+    if not event.image_url:
+        event.image_url = image_url
     await db.commit()
     await db.refresh(event)
     return event
+
+
+@router.post("/{event_id}/images", response_model=EventOut)
+async def upload_event_images(
+    event_id: int,
+    files: list[UploadFile] = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == event_id)
+    )
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    start_order = len(event.images)
+    for i, file in enumerate(files):
+        if not file.filename:
+            continue
+        image_url = await save_event_image(file, event_id)
+        db.add(EventImage(event_id=event_id, image_url=image_url, order=start_order + i))
+        if not event.image_url:
+            event.image_url = image_url
+
+    await db.commit()
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == event_id)
+    )
+    return result.scalar_one()
+
+
+@router.delete("/{event_id}/images/{image_id}", status_code=204)
+async def delete_event_image(
+    event_id: int,
+    image_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    event = await db.get(Event, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if event.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+
+    img = await db.get(EventImage, image_id)
+    if not img or img.event_id != event_id:
+        raise HTTPException(status_code=404, detail="Фото не найдено")
+
+    deleted_url = img.image_url
+    await db.delete(img)
+
+    # If deleted image was the cover, update to next available
+    if event.image_url == deleted_url:
+        result = await db.execute(
+            select(EventImage)
+            .where(EventImage.event_id == event_id, EventImage.id != image_id)
+            .order_by(EventImage.order)
+            .limit(1)
+        )
+        next_img = result.scalar_one_or_none()
+        event.image_url = next_img.image_url if next_img else None
+
+    await db.commit()
 
 
 @router.post("/{event_id}/join", status_code=status.HTTP_201_CREATED)
@@ -267,6 +443,8 @@ async def join_event(
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.status != EventStatus.active:
         raise HTTPException(status_code=400, detail="Мероприятие недоступно для записи")
+    if event.date and (event.date - datetime.utcnow()) < timedelta(hours=6):
+        raise HTTPException(status_code=400, detail="Регистрация закрыта (менее 6 часов до начала)")
     if event.is_full:
         raise HTTPException(status_code=400, detail="Мест больше нет")
     if event.organizer_id == current_user.id:
@@ -290,6 +468,9 @@ async def join_event(
     await db.commit()
 
     organizer = event.organizer
+    from app.core.config import settings
+    event_date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+
     await notify_new_participant(
         organizer.telegram_id,
         organizer.email,
@@ -297,6 +478,17 @@ async def join_event(
         event.title,
         event.participants_count,
         event.capacity,
+        participant_telegram_username=current_user.telegram_username,
+    )
+    await notify_joined_event(
+        participant_telegram_id=current_user.telegram_id,
+        event_title=event.title,
+        event_date=event_date_str,
+        event_address=event.address,
+        organizer_name=f"{organizer.first_name} {organizer.last_name}",
+        organizer_telegram_username=organizer.telegram_username,
+        frontend_url=settings.FRONTEND_URL,
+        event_id=event_id,
     )
     return {"message": "Вы успешно записались"}
 
@@ -321,10 +513,22 @@ async def leave_event(
         raise HTTPException(status_code=404, detail="Вы не записаны на это мероприятие")
 
     record.status = ParticipantStatus.cancelled
-    event = await db.get(Event, event_id)
+    event = await db.get(Event, event_id, options=[selectinload(Event.organizer)])
     if event and event.participants_count > 0:
         event.participants_count -= 1
     await db.commit()
+
+    if event:
+        participant_name = f"{current_user.first_name} {current_user.last_name}".strip()
+        asyncio.create_task(notify_participant_left(
+            organizer_telegram_id=event.organizer.telegram_id,
+            organizer_email=event.organizer.email,
+            participant_name=participant_name,
+            event_title=event.title,
+            current_count=event.participants_count,
+            capacity=event.capacity,
+        ))
+
     return {"message": "Вы отменили участие"}
 
 

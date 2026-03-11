@@ -62,12 +62,97 @@ async def _send_attendance_notifications():
         await db.commit()
 
 
+async def _cancel_underfilled_events():
+    """Auto-cancel events starting in <6 h that haven't reached min_participants."""
+    from app.models.event import Event, EventParticipant, EventStatus
+    from app.services.notifications import notify_event_cancelled
+
+    now = datetime.utcnow()
+    window_start = now
+    window_end = now + timedelta(hours=6)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Event)
+            .options(
+                selectinload(Event.participants).selectinload(EventParticipant.user),
+            )
+            .where(Event.status == EventStatus.active)
+            .where(Event.is_tour == False)  # noqa: E712
+            .where(Event.min_participants.is_not(None))
+            .where(Event.date >= window_start)
+            .where(Event.date <= window_end)
+        )
+        events = result.scalars().all()
+
+        for event in events:
+            active_count = sum(1 for p in event.participants if p.status.value == "registered")
+            if active_count >= event.min_participants:
+                continue
+
+            event.status = EventStatus.cancelled
+            logger.info(
+                "Auto-cancelled event %s (min=%s, got=%s)",
+                event.id, event.min_participants, active_count,
+            )
+
+            date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+            for p in event.participants:
+                if p.status.value != "registered":
+                    continue
+                try:
+                    await notify_event_cancelled(
+                        participant_telegram_id=p.user.telegram_id,
+                        event_title=event.title,
+                        event_date=date_str,
+                        reason="min_participants",
+                    )
+                except Exception as e:
+                    logger.error("Error notifying participant %s: %s", p.user_id, e)
+
+        await db.commit()
+
+
+async def _complete_past_events():
+    """Mark active non-tour events whose date has passed as completed."""
+    from app.models.event import Event, EventStatus
+
+    now = datetime.utcnow()
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Event)
+            .where(Event.status == EventStatus.active)
+            .where(Event.is_tour == False)  # noqa: E712
+            .where(Event.date.is_not(None))
+            .where(Event.date < now)
+        )
+        events = result.scalars().all()
+        for event in events:
+            event.status = EventStatus.completed
+            logger.info("Auto-completed event %s (date=%s)", event.id, event.date)
+        if events:
+            await db.commit()
+
+
 async def run_cron():
     """Infinite loop that runs attendance notifications periodically."""
     logger.info("Cron started (interval=%ds)", CRON_INTERVAL_SECONDS)
+    # Run immediately on startup, then repeat on interval
+    try:
+        await _complete_past_events()
+    except Exception as e:
+        logger.error("Cron complete-past error (startup): %s", e)
     while True:
         await asyncio.sleep(CRON_INTERVAL_SECONDS)
+        try:
+            await _complete_past_events()
+        except Exception as e:
+            logger.error("Cron complete-past error: %s", e)
         try:
             await _send_attendance_notifications()
         except Exception as e:
             logger.error("Cron error: %s", e)
+        try:
+            await _cancel_underfilled_events()
+        except Exception as e:
+            logger.error("Cron cancel-underfilled error: %s", e)

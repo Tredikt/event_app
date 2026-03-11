@@ -1,5 +1,5 @@
 import api from './client'
-import type { AttendanceParticipant, Event, EventList, Category, Participant, Subscription } from '@/types'
+import type { AttendanceParticipant, Event, EventList, Category, Participant, Subscription, Review } from '@/types'
 
 export interface EventFilters {
   category_id?: number
@@ -17,6 +17,7 @@ export interface CreateEventData {
   description: string
   date: string
   capacity: number
+  min_participants?: number | null
   address: string
   latitude?: number
   longitude?: number
@@ -43,9 +44,21 @@ export const eventsApi = {
     return api.post<Event>(`/events/${id}/image`, form)
   },
 
+  uploadImages: (id: number, files: File[]) => {
+    const form = new FormData()
+    files.forEach((f) => form.append('files', f))
+    return api.post<Event>(`/events/${id}/images`, form)
+  },
+
+  deleteImage: (eventId: number, imageId: number) =>
+    api.delete(`/events/${eventId}/images/${imageId}`),
+
   join: (id: number) => api.post(`/events/${id}/join`),
 
   leave: (id: number) => api.delete(`/events/${id}/join`),
+
+  instantiate: (id: number, date: string) =>
+    api.post<Event>(`/events/${id}/instantiate`, { date }),
 
   getParticipants: (id: number) => api.get<Participant[]>(`/events/${id}/participants`),
 
@@ -69,4 +82,12 @@ export const eventsApi = {
 
   markAttendance: (id: number, items: { user_id: number; attended: boolean }[]) =>
     api.post(`/events/${id}/attendance`, { items }),
+
+  getReviews: (id: number) => api.get<Review[]>(`/events/${id}/reviews`),
+
+  createReview: (id: number, rating: number, text?: string) =>
+    api.post<Review>(`/events/${id}/reviews`, { rating, text }),
+
+  deleteReview: (eventId: number, reviewId: number) =>
+    api.delete(`/events/${eventId}/reviews/${reviewId}`),
 }

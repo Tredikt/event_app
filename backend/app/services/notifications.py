@@ -88,12 +88,20 @@ async def notify_event_update(telegram_id: Optional[int], email: Optional[str], 
         await send_email(email, f"Изменение: {event_title}", html)
 
 
-async def notify_new_participant(organizer_telegram_id: Optional[int], organizer_email: Optional[str],
-                                  participant_name: str, event_title: str, current_count: int, capacity: int):
+async def notify_new_participant(
+    organizer_telegram_id: Optional[int],
+    organizer_email: Optional[str],
+    participant_name: str,
+    event_title: str,
+    current_count: int,
+    capacity: int,
+    participant_telegram_username: Optional[str] = None,
+):
+    tg_line = f"\n📲 Telegram: @{participant_telegram_username}" if participant_telegram_username else ""
     text = (
         f"🎉 <b>Новый участник!</b>\n\n"
         f"📌 <b>{event_title}</b>\n"
-        f"👤 {participant_name} записался на ваше мероприятие\n"
+        f"👤 {participant_name} записался на ваше мероприятие{tg_line}\n"
         f"👥 Участников: {current_count}/{capacity}"
     )
     if organizer_telegram_id:
@@ -101,6 +109,56 @@ async def notify_new_participant(organizer_telegram_id: Optional[int], organizer
     if organizer_email:
         html = f"<h2>Новый участник</h2><p><strong>{event_title}</strong></p><p>{participant_name} записался. Участников: {current_count}/{capacity}</p>"
         await send_email(organizer_email, f"Новый участник: {event_title}", html)
+
+
+async def notify_participant_left(
+    organizer_telegram_id: Optional[int],
+    organizer_email: Optional[str],
+    participant_name: str,
+    event_title: str,
+    current_count: int,
+    capacity: int,
+):
+    text = (
+        f"😔 <b>Участник отказался</b>\n\n"
+        f"📌 <b>{event_title}</b>\n"
+        f"👤 {participant_name} отменил участие\n"
+        f"👥 Осталось участников: {current_count}/{capacity}"
+    )
+    if organizer_telegram_id:
+        await send_telegram_message(organizer_telegram_id, text)
+    if organizer_email:
+        html = f"<h2>Участник отказался</h2><p><strong>{event_title}</strong></p><p>{participant_name} отменил участие. Участников: {current_count}/{capacity}</p>"
+        await send_email(organizer_email, f"Отказ от участия: {event_title}", html)
+
+
+async def notify_joined_event(
+    participant_telegram_id: Optional[int],
+    event_title: str,
+    event_date: Optional[str],
+    event_address: str,
+    organizer_name: str,
+    organizer_telegram_username: Optional[str],
+    frontend_url: str,
+    event_id: int,
+):
+    """Notify the participant that their registration is confirmed, with organizer contact."""
+    date_line = f"📅 {event_date}\n" if event_date else ""
+    org_contact = (
+        f"\n💬 Свяжитесь с организатором: @{organizer_telegram_username}"
+        if organizer_telegram_username
+        else f"\n👤 Организатор: {organizer_name}"
+    )
+    text = (
+        f"✅ <b>Вы записались на мероприятие!</b>\n\n"
+        f"📌 <b>{event_title}</b>\n"
+        f"{date_line}"
+        f"📍 {event_address}"
+        f"{org_contact}\n\n"
+        f"👉 {frontend_url}/events/{event_id}"
+    )
+    if participant_telegram_id:
+        await send_telegram_message(participant_telegram_id, text)
 
 
 async def notify_attendance_request(
@@ -120,6 +178,28 @@ async def notify_attendance_request(
     )
     if telegram_id:
         await send_telegram_message(telegram_id, text)
+
+
+async def notify_event_cancelled(
+    participant_telegram_id: Optional[int],
+    event_title: str,
+    event_date: Optional[str],
+    reason: str = "min_participants",
+):
+    """Notify participant that the event was auto-cancelled due to low sign-ups."""
+    date_line = f"📅 {event_date}\n" if event_date else ""
+    if reason == "min_participants":
+        reason_text = "Мероприятие отменено: не набралось минимальное количество участников."
+    else:
+        reason_text = "Мероприятие отменено организатором."
+    text = (
+        f"❌ <b>Мероприятие отменено</b>\n\n"
+        f"📌 <b>{event_title}</b>\n"
+        f"{date_line}"
+        f"{reason_text}"
+    )
+    if participant_telegram_id:
+        await send_telegram_message(participant_telegram_id, text)
 
 
 async def notify_new_event_to_subscribers(

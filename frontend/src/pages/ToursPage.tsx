@@ -35,7 +35,7 @@ export default function ToursPage() {
       })
       setEvents(data)
     } catch {
-      toast.error('Не удалось загрузить туры')
+      toast.error('Не удалось загрузить форматы')
     } finally {
       setLoading(false)
     }
@@ -56,7 +56,7 @@ export default function ToursPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-colors"
-            placeholder="Поиск туров..."
+            placeholder="Поиск..."
           />
         </div>
       </div>
@@ -73,8 +73,8 @@ export default function ToursPage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             )}
           >
-            <span className="text-base leading-none">🗺️</span>
-            Все туры
+            <span className="text-base leading-none">🎭</span>
+            Все форматы
           </button>
           {categories.map((cat) => (
             <button
@@ -110,15 +110,15 @@ export default function ToursPage() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <div className="text-5xl mb-3">🏕️</div>
-            <p className="font-semibold text-gray-500">Туров не найдено</p>
+            <div className="text-5xl mb-3">🎭</div>
+            <p className="font-semibold text-gray-500">Форматов пока нет</p>
             <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
             {isAuthenticated && (
               <button
                 onClick={() => navigate('/events/new?tour=1')}
                 className="mt-4 btn-primary text-sm"
               >
-                Создать тур
+                Добавить формат
               </button>
             )}
           </div>

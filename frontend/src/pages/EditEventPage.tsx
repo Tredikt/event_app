@@ -19,17 +19,25 @@ export default function EditEventPage() {
 
   if (!event) return <div className="max-w-2xl mx-auto px-4 py-12 text-center text-gray-400">Загрузка...</div>
 
-  const handleSubmit = async (data: CreateEventData, imageFile?: File) => {
+  const handleSubmit = async (data: CreateEventData, newFiles: File[], removedIds: number[]) => {
     try {
       await eventsApi.update(Number(id), data)
-      if (imageFile) {
-        try { await eventsApi.uploadImage(Number(id), imageFile) } catch {}
+      await Promise.all(removedIds.filter(imgId => imgId > 0).map((imgId) => eventsApi.deleteImage(Number(id), imgId).catch(() => {})))
+      if (newFiles.length > 0) {
+        try { await eventsApi.uploadImages(Number(id), newFiles) } catch {}
       }
       toast.success('Мероприятие обновлено')
       navigate(`/events/${id}`)
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || 'Ошибка обновления')
+      const d = e.response?.data?.detail
+      toast.error(Array.isArray(d) ? d.map((x: any) => x.msg).join(', ') : (d || 'Ошибка обновления'))
     }
+  }
+
+  const toLocalInput = (iso: string) => {
+    const d = new Date(iso)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   return (
@@ -41,16 +49,24 @@ export default function EditEventPage() {
       <div className="card p-6">
         <EventForm
           categories={categories}
-          defaultImageUrl={event.image_url ?? undefined}
+          defaultImages={
+            event.images.length > 0
+              ? event.images.map((img) => ({ id: img.id, url: img.image_url }))
+              : event.image_url
+              ? [{ id: -1, url: event.image_url }]
+              : []
+          }
           defaultValues={{
             title: event.title,
             description: event.description,
-            date: event.date ? new Date(event.date).toISOString().slice(0, 16) : undefined,
+            date: event.date ? toLocalInput(event.date) : undefined,
             capacity: event.capacity,
+            min_participants: event.min_participants ?? undefined,
             address: event.address,
             latitude: event.latitude ?? undefined,
             longitude: event.longitude ?? undefined,
             category_id: event.category.id,
+            is_tour: event.is_tour,
           }}
           onSubmit={handleSubmit}
           submitLabel="Сохранить изменения"

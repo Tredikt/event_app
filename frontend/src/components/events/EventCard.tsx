@@ -69,7 +69,7 @@ export default function EventCard({ event, compact = false, wide = false }: Prop
         )}
 
         {/* Date chip — hidden for catalog items */}
-        {dateStr && (
+        {dateStr && !event.is_tour && (
           <div className="absolute bottom-2 right-2 bg-black/40 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full">
             {dateStr}
           </div>

@@ -6,7 +6,6 @@ from app.schemas.user import UserPublic
 
 
 class ReviewCreate(BaseModel):
-    event_id: int
     rating: int
     text: Optional[str] = None
 
@@ -22,7 +21,6 @@ class ReviewOut(BaseModel):
     id: int
     reviewer: UserPublic
     event_id: int
-    event_title: str
     rating: int
     text: Optional[str] = None
     created_at: datetime

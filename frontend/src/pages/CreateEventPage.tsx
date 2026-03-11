@@ -23,16 +23,17 @@ export default function CreateEventPage() {
     eventsApi.getCategories().then((r) => setCategories(r.data))
   }, [])
 
-  const handleSubmit = async (data: CreateEventData, imageFile?: File) => {
+  const handleSubmit = async (data: CreateEventData, newFiles: File[]) => {
     try {
       const { data: event } = await eventsApi.create(data)
-      if (imageFile) {
-        try { await eventsApi.uploadImage(event.id, imageFile) } catch {}
+      if (newFiles.length > 0) {
+        try { await eventsApi.uploadImages(event.id, newFiles) } catch {}
       }
       toast.success('Мероприятие создано!')
       navigate(`/events/${event.id}`, { replace: true })
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || 'Ошибка создания')
+      const d = e.response?.data?.detail
+      toast.error(Array.isArray(d) ? d.map((x: any) => x.msg).join(', ') : (d || 'Ошибка создания'))
     }
   }
 
@@ -42,13 +43,13 @@ export default function CreateEventPage() {
         <ArrowLeft className="w-4 h-4" />Назад
       </button>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {isTour ? 'Создать тур' : 'Организация Досуга'}
+        {isTour ? 'Новый формат' : 'Новое мероприятие'}
       </h1>
       <div className="card p-6">
         <EventForm
           categories={categories}
           onSubmit={handleSubmit}
-          submitLabel={isTour ? 'Создать тур' : 'Организация Досуга'}
+          submitLabel={isTour ? 'Создать формат' : 'Создать мероприятие'}
           defaultValues={{ capacity: 10, is_tour: isTour }}
         />
       </div>

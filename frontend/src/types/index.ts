@@ -28,18 +28,27 @@ export interface UserProfile extends UserPublic {
   created_at: string
 }
 
+export interface EventImage {
+  id: number
+  image_url: string
+  order: number
+}
+
 export interface Event {
   id: number
   title: string
   description: string
   date: string | null
   capacity: number
+  min_participants: number | null
   participants_count: number
   address: string
   latitude: number | null
   longitude: number | null
   status: EventStatus
   image_url: string | null
+  images: EventImage[]
+  subscriptions_count: number
   is_tour: boolean
   category: Category
   organizer: UserPublic
@@ -52,6 +61,7 @@ export interface EventList {
   title: string
   date: string | null
   capacity: number
+  min_participants: number | null
   participants_count: number
   address: string
   latitude: number | null
@@ -82,6 +92,15 @@ export interface Subscription {
   event_id: number
   notify_telegram: boolean
   notify_email: boolean
+}
+
+export interface Review {
+  id: number
+  reviewer: UserPublic
+  event_id: number
+  rating: number
+  text: string | null
+  created_at: string
 }
 
 export interface AuthToken {

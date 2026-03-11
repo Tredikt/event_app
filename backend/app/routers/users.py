@@ -1,6 +1,7 @@
 """Public user profiles and reviews."""
 
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,7 @@ from app.core.deps import get_current_user
 from app.models.event import Event, EventParticipant, EventStatus
 from app.models.review import Review
 from app.models.user import User
+from app.schemas.event import EventListOut
 from app.schemas.review import OrganizerProfile, ReviewCreate, ReviewOut
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -106,6 +108,74 @@ async def get_eligible_events(
         for e in events
         if e.id not in reviewed_ids
     ]
+
+
+@router.get("/{user_id}/events", response_model=list[EventListOut])
+async def get_organizer_events(
+    user_id: int,
+    tab: Optional[str] = "upcoming",
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.utcnow()
+    from app.models.event import EventCategory
+    if tab == "past":
+        q = (
+            select(Event)
+            .options(selectinload(Event.category), selectinload(Event.organizer))
+            .where(and_(
+                Event.organizer_id == user_id,
+                Event.is_tour == False,
+                Event.date < now,
+                Event.status != EventStatus.cancelled,
+            ))
+            .order_by(Event.date.desc())
+        )
+    else:
+        q = (
+            select(Event)
+            .options(selectinload(Event.category), selectinload(Event.organizer))
+            .where(and_(
+                Event.organizer_id == user_id,
+                Event.is_tour == False,
+                Event.date >= now,
+                Event.status != EventStatus.cancelled,
+            ))
+            .order_by(Event.date.asc())
+        )
+    result = await db.execute(q)
+    events = result.scalars().all()
+
+    counts_q = await db.execute(
+        select(Event.id, func.count(EventParticipant.id))
+        .outerjoin(EventParticipant, and_(
+            EventParticipant.event_id == Event.id,
+            EventParticipant.status == "registered",
+        ))
+        .where(Event.organizer_id == user_id)
+        .group_by(Event.id)
+    )
+    counts = {row[0]: row[1] for row in counts_q}
+
+    out = []
+    for e in events:
+        pc = counts.get(e.id, 0)
+        out.append(EventListOut(
+            id=e.id,
+            title=e.title,
+            date=e.date,
+            capacity=e.capacity,
+            participants_count=pc,
+            address=e.address,
+            latitude=e.latitude,
+            longitude=e.longitude,
+            status=e.status,
+            image_url=e.image_url,
+            is_tour=e.is_tour,
+            category=e.category,
+            organizer=e.organizer,
+            is_full=pc >= e.capacity,
+        ))
+    return out
 
 
 @router.post("/{user_id}/reviews", response_model=ReviewOut)

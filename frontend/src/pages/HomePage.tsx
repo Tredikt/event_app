@@ -109,7 +109,7 @@ export default function HomePage() {
                 tab === 'catalog' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
               )}
             >
-              Каталог
+              Форматы
             </button>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function HomePage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white transition-colors"
-            placeholder={tab === 'catalog' ? 'Поиск в каталоге...' : 'Поиск мероприятий...'}
+            placeholder="Поиск..."
           />
         </div>
       </div>
@@ -140,8 +140,8 @@ export default function HomePage() {
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             )}
           >
-            <span className="text-base leading-none">{tab === 'catalog' ? '🗂️' : '🎯'}</span>
-            {tab === 'catalog' ? 'Весь каталог' : 'Все'}
+            <span className="text-base leading-none">{tab === 'catalog' ? '🎭' : '🎯'}</span>
+            {tab === 'catalog' ? 'Все форматы' : 'Все'}
           </button>
           {categories.map((cat) => (
             <button
@@ -177,9 +177,9 @@ export default function HomePage() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <div className="text-5xl mb-3">{tab === 'catalog' ? '🗂️' : '🔍'}</div>
+            <div className="text-5xl mb-3">{tab === 'catalog' ? '🎭' : '🔍'}</div>
             <p className="font-semibold text-gray-500">
-              {tab === 'catalog' ? 'В каталоге ничего не найдено' : 'Мероприятий не найдено'}
+              {tab === 'catalog' ? 'Форматов пока нет' : 'Мероприятий не найдено'}
             </p>
             <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
             {!isAuthenticated && (

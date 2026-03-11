@@ -16,16 +16,19 @@ from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — register all models with Base.metadata
     CategorySubscription,
     Event,
+    EventAttendance,
     EventCategory,
+    EventImage,
     EventParticipant,
     EventSubscription,
     NotificationSettings,
     OrganizerSubscription,
     User,
     NewsPost,
+    NewsPostImage,
     Review,
 )
-from app.routers import auth, events, notifications, telegram, news, users
+from app.routers import auth, events, notifications, telegram, news, users, reviews
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -116,6 +119,25 @@ async def migrate_schema():
             "ALTER TABLE events ALTER COLUMN date DROP NOT NULL"
         ))
         await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS event_images (
+                id SERIAL PRIMARY KEY,
+                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+                image_url VARCHAR(500) NOT NULL,
+                "order" INTEGER NOT NULL DEFAULT 0
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS news_post_images (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER NOT NULL REFERENCES news_posts(id) ON DELETE CASCADE,
+                image_url VARCHAR(500) NOT NULL,
+                "order" INTEGER NOT NULL DEFAULT 0
+            )
+        """))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS min_participants INTEGER"
+        ))
+        await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS reviews (
                 id SERIAL PRIMARY KEY,
                 reviewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -180,6 +202,7 @@ app.include_router(notifications.router)
 app.include_router(telegram.router)
 app.include_router(news.router)
 app.include_router(users.router)
+app.include_router(reviews.router)
 
 
 @app.get("/health")

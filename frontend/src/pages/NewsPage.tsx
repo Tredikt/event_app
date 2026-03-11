@@ -1,12 +1,115 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, MapPin, Trash2, X, ExternalLink } from 'lucide-react'
+import { Search, MapPin, Trash2, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
 import { newsApi, type NewsPost } from '@/api/news'
 import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { getServerData } from '@/serverData'
+
+const PREVIEW_LENGTH = 130
+
+function NewsCarousel({ images, fallback }: { images: string[]; fallback?: string }) {
+  const all = images.length > 0 ? images : fallback ? [fallback] : []
+  const [idx, setIdx] = useState(0)
+  const touchStartX = useRef<number | null>(null)
+
+  const prev = useCallback(() => setIdx((i) => (i - 1 + all.length) % all.length), [all.length])
+  const next = useCallback(() => setIdx((i) => (i + 1) % all.length), [all.length])
+
+  if (all.length === 0) return null
+
+  return (
+    <div
+      className="relative w-full overflow-hidden select-none"
+      style={{ maxHeight: '280px' }}
+      onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
+      onTouchEnd={(e) => {
+        if (touchStartX.current === null || all.length <= 1) return
+        const diff = touchStartX.current - e.changedTouches[0].clientX
+        if (Math.abs(diff) > 40) diff > 0 ? next() : prev()
+        touchStartX.current = null
+      }}
+    >
+      <img
+        key={idx}
+        src={all[idx]}
+        alt=""
+        className="w-full object-cover"
+        style={{ maxHeight: '280px' }}
+      />
+
+      {all.length > 1 && (
+        <>
+          <button
+            onClick={prev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {all.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIdx(i)}
+                className={`rounded-full transition-all ${i === idx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function NewsContent({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = content.length > PREVIEW_LENGTH
+
+  const html = (text: string) => text.replace(/\n/g, '<br>')
+
+  if (!isLong || expanded) {
+    return (
+      <div className="space-y-1">
+        <div
+          className="text-sm text-gray-600 leading-relaxed news-content"
+          dangerouslySetInnerHTML={{ __html: html(content) }}
+        />
+        {isLong && (
+          <button
+            onClick={() => setExpanded(false)}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Свернуть
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  const preview = content.slice(0, PREVIEW_LENGTH).trimEnd()
+  return (
+    <div className="space-y-1">
+      <div
+        className="text-sm text-gray-600 leading-relaxed news-content"
+        dangerouslySetInnerHTML={{ __html: html(preview) + '…' }}
+      />
+      <button
+        onClick={() => setExpanded(true)}
+        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+      >
+        Показать ещё
+      </button>
+    </div>
+  )
+}
 
 export default function NewsPage() {
   const initial = getServerData()
@@ -42,6 +145,13 @@ export default function NewsPage() {
     } catch {
       toast.error('Ошибка при удалении')
     }
+  }
+
+  // Build carousel images for a post: prefer images array, fall back to image_url / event_image_url
+  const getImages = (post: NewsPost): string[] => {
+    if (post.images && post.images.length > 0) return post.images.map((img) => img.image_url)
+    const fb = post.image_url || post.event_image_url
+    return fb ? [fb] : []
   }
 
   return (
@@ -99,46 +209,48 @@ export default function NewsPage() {
             {cityFilter && <p className="text-sm mt-1">Попробуйте другой город</p>}
           </div>
         ) : (
-          posts.map((post) => (
-            <div key={post.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              {(post.image_url || post.event_image_url) && (
-                <img src={post.image_url || post.event_image_url} alt="" className="w-full object-cover" style={{ maxHeight: '280px' }} />
-              )}
-              <div className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-900 text-sm leading-snug flex-1">{post.title}</h3>
-                  {user?.is_admin && (
-                    <button onClick={() => handleDelete(post.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {/* Render Telegram HTML formatting */}
-                <div
-                  className="text-sm text-gray-600 leading-relaxed news-content"
-                  dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br>') }}
-                />
-                <div className="flex items-center gap-2 pt-1 text-xs text-gray-400">
-                  {post.city && (
-                    <span className="flex items-center gap-0.5">
-                      <MapPin className="w-3 h-3" />
-                      {post.city}
-                    </span>
-                  )}
-                  <span>{format(new Date(post.created_at), 'd MMMM yyyy', { locale: ru })}</span>
-                </div>
-                {post.event_id && (
-                  <Link
-                    to={`/events/${post.event_id}`}
-                    className="flex items-center justify-center gap-2 w-full mt-1 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-sm transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    К мероприятию
-                  </Link>
+          posts.map((post) => {
+            const images = getImages(post)
+            return (
+              <div key={post.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                {images.length > 0 && (
+                  <NewsCarousel
+                    images={post.images.map((img) => img.image_url)}
+                    fallback={post.image_url || post.event_image_url}
+                  />
                 )}
+                <div className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-gray-900 text-sm leading-snug flex-1">{post.title}</h3>
+                    {user?.is_admin && (
+                      <button onClick={() => handleDelete(post.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <NewsContent content={post.content} />
+                  <div className="flex items-center gap-2 pt-1 text-xs text-gray-400">
+                    {post.city && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin className="w-3 h-3" />
+                        {post.city}
+                      </span>
+                    )}
+                    <span>{format(new Date(post.created_at), 'd MMMM yyyy', { locale: ru })}</span>
+                  </div>
+                  {post.event_id && (
+                    <Link
+                      to={`/events/${post.event_id}`}
+                      className="flex items-center justify-center gap-2 w-full mt-1 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium text-sm transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      К мероприятию
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

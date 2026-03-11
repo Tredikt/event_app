@@ -1,21 +1,26 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
-import { MapPin, Loader, Camera, X } from 'lucide-react'
+import { MapPin, Loader, Camera, X, Plus } from 'lucide-react'
 import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
 import IosDatePicker from '@/components/ui/IosDatePicker'
 
+interface ExistingImage {
+  id: number
+  url: string
+}
+
 interface Props {
   defaultValues?: Partial<CreateEventData>
-  defaultImageUrl?: string
+  defaultImages?: ExistingImage[]
   categories: Category[]
-  onSubmit: (data: CreateEventData, imageFile?: File) => Promise<void>
+  onSubmit: (data: CreateEventData, newFiles: File[], removedIds: number[]) => Promise<void>
   submitLabel: string
 }
 
-export default function EventForm({ defaultValues, defaultImageUrl, categories, onSubmit, submitLabel }: Props) {
+export default function EventForm({ defaultValues, defaultImages = [], categories, onSubmit, submitLabel }: Props) {
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues, control } = useForm<CreateEventData>({
     defaultValues: defaultValues || { capacity: 10 },
   })
@@ -25,6 +30,10 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
   const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
 
+  useEffect(() => {
+    if (isCatalog) setValue('date', '')
+  }, [isCatalog, setValue])
+
   const [mapPin, setMapPin] = useState<[number, number] | null>(
     defaultValues?.latitude && defaultValues?.longitude
       ? [defaultValues.latitude, defaultValues.longitude]
@@ -32,26 +41,39 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   )
   const [geocoding, setGeocoding] = useState(false)
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(defaultImageUrl || null)
+
+  // Multi-image state
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>(defaultImages)
+  const [removedIds, setRemovedIds] = useState<number[]>([])
+  const [newFiles, setNewFiles] = useState<File[]>([])
+  const [newPreviews, setNewPreviews] = useState<string[]>([])
   const [imageError, setImageError] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const totalImages = existingImages.length + newFiles.length
+  const hasImages = totalImages > 0
+
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { onChange: rhfAddressOnChange, ...addressRest } = register('address', { required: 'Обязательное поле' })
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
+  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setNewFiles((prev) => [...prev, ...files])
+    setNewPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))])
     setImageError(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  const removeExisting = (id: number) => {
+    setExistingImages((prev) => prev.filter((img) => img.id !== id))
+    setRemovedIds((prev) => [...prev, id])
+  }
+
+  const removeNew = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index))
+    setNewPreviews((prev) => prev.filter((_, i) => i !== index))
   }
 
   const nominatimSearch = async (query: string, limit = 5): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
@@ -115,51 +137,132 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
   }
 
   const handleFormSubmit = handleSubmit((data) => {
-    if (!imagePreview) { setImageError(true); return }
-    return onSubmit(data, imageFile ?? undefined)
+    if (!hasImages) { setImageError(true); return }
+    if (data.min_participants != null && isNaN(data.min_participants as number)) {
+      data.min_participants = null
+    }
+    // datetime-local gives local time without timezone — convert to UTC ISO string
+    if (data.date) {
+      data.date = new Date(data.date).toISOString()
+    } else {
+      delete (data as any).date
+    }
+    return onSubmit(data, newFiles, removedIds)
   })
 
   return (
     <form onSubmit={handleFormSubmit} className="space-y-5">
 
-      {/* Catalog toggle — first, drives the rest of the form */}
-      <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border border-gray-200">
-        <span className="text-2xl">🗂️</span>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900">Добавить в каталог</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {isCatalog
-              ? <><span className="font-medium text-blue-700">Каталог</span> — постоянное предложение (тур, секция, клуб). Без конкретной даты.</>
-              : <><span className="font-medium text-gray-700">Мероприятие</span> — разовое событие с датой в общей ленте.</>
-            }
-          </p>
-        </div>
-        <input type="checkbox" {...register('is_tour')} className="w-4 h-4 accent-blue-700" />
-      </label>
+      {/* Event type selector */}
+      <Controller
+        name="is_tour"
+        control={control}
+        render={({ field }) => (
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">Тип</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => field.onChange(false)}
+                className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all ${
+                  !field.value
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">📅</span>
+                <div>
+                  <p className={`text-sm font-semibold ${!field.value ? 'text-blue-700' : 'text-gray-800'}`}>Мероприятие</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">Разовое событие с датой — появится в общей ленте</p>
+                </div>
+                <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${!field.value ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
+                  {!field.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+              </button>
 
-      {/* Image picker */}
+              <button
+                type="button"
+                onClick={() => field.onChange(true)}
+                className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all ${
+                  field.value
+                    ? 'border-blue-600 bg-blue-50'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">🗂️</span>
+                <div>
+                  <p className={`text-sm font-semibold ${field.value ? 'text-blue-700' : 'text-gray-800'}`}>Формат</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">Шаблон без даты — создавайте мероприятия по нему когда угодно</p>
+                </div>
+                <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${field.value ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
+                  {field.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+      />
+
+      {/* Multi-image picker */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          Обложка <span className="text-red-500">*</span>
+          Фотографии <span className="text-red-500">*</span>
+          <span className="text-gray-400 font-normal ml-1">(первая станет обложкой)</span>
         </label>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-        {imagePreview ? (
-          <div className="relative rounded-xl overflow-hidden border border-gray-200" style={{ height: '180px' }}>
-            <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
-            <button
-              type="button"
-              onClick={removeImage}
-              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 text-white text-xs px-2.5 py-1.5 rounded-lg transition-colors"
-            >
-              <Camera className="w-3.5 h-3.5" />Изменить
-            </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleImagesChange}
+        />
+
+        {hasImages ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
+              {existingImages.map((img) => (
+                <div key={img.id} className="relative rounded-xl overflow-hidden border border-gray-200" style={{ paddingBottom: '75%' }}>
+                  <img src={img.url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeExisting(img.id)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  {existingImages[0]?.id === img.id && newFiles.length === 0 && (
+                    <span className="absolute bottom-1 left-1 text-[10px] bg-blue-700 text-white px-1.5 py-0.5 rounded-md font-medium">обложка</span>
+                  )}
+                </div>
+              ))}
+              {newPreviews.map((src, i) => (
+                <div key={`new-${i}`} className="relative rounded-xl overflow-hidden border border-gray-200" style={{ paddingBottom: '75%' }}>
+                  <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeNew(i)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  {existingImages.length === 0 && i === 0 && (
+                    <span className="absolute bottom-1 left-1 text-[10px] bg-blue-700 text-white px-1.5 py-0.5 rounded-md font-medium">обложка</span>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => { fileInputRef.current?.click(); setImageError(false) }}
+                className="rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-400 hover:text-blue-700 flex flex-col items-center justify-center gap-1 transition-colors"
+                style={{ paddingBottom: '75%', position: 'relative' }}
+              >
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                  <Plus className="w-5 h-5" />
+                  <span className="text-xs font-medium">Ещё</span>
+                </div>
+              </button>
+            </div>
           </div>
         ) : (
           <button
@@ -172,11 +275,11 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
             }`}
           >
             <Camera className="w-6 h-6" />
-            <span className="text-sm font-medium">Добавить обложку</span>
-            <span className="text-xs">JPG, PNG до 5 МБ</span>
+            <span className="text-sm font-medium">Добавить фотографии</span>
+            <span className="text-xs">Можно выбрать несколько</span>
           </button>
         )}
-        {imageError && <p className="text-xs text-red-500 mt-1">Добавьте обложку мероприятия</p>}
+        {imageError && <p className="text-xs text-red-500 mt-1">Добавьте хотя бы одно фото</p>}
       </div>
 
       <div>
@@ -231,6 +334,21 @@ export default function EventForm({ defaultValues, defaultImageUrl, categories, 
           {errors.capacity && <p className="text-xs text-red-500 mt-1">{errors.capacity.message}</p>}
         </div>
       </div>
+
+      {!isCatalog && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Мин. участников для проведения</label>
+          <input
+            type="number"
+            min={2}
+            {...register('min_participants', { valueAsNumber: true, min: { value: 2, message: 'Минимум 2' } })}
+            className="input"
+            placeholder="Не задано"
+          />
+          {errors.min_participants && <p className="text-xs text-red-500 mt-1">{errors.min_participants.message}</p>}
+          <p className="text-xs text-gray-400 mt-1">Если не наберётся, мероприятие отменится за 6 часов до начала</p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">Категория <span className="text-red-500">*</span></label>

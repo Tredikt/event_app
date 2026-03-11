@@ -6,6 +6,7 @@ import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { usersApi, type OrganizerProfile, type ReviewOut, type EligibleEvent } from '@/api/users'
 import { useAuthStore } from '@/stores/authStore'
+import type { EventList } from '@/types'
 
 function Stars({ value, size = 'sm' }: { value: number; size?: 'sm' | 'lg' }) {
   const sz = size === 'lg' ? 'text-2xl' : 'text-sm'
@@ -49,6 +50,11 @@ export default function OrganizerPage() {
   const [eligibleEvents, setEligibleEvents] = useState<EligibleEvent[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [eventsTab, setEventsTab] = useState<'upcoming' | 'past'>('upcoming')
+  const [upcomingEvents, setUpcomingEvents] = useState<EventList[]>([])
+  const [pastEvents, setPastEvents] = useState<EventList[]>([])
+  const [eventsLoading, setEventsLoading] = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<number>(0)
   const [rating, setRating] = useState(5)
@@ -67,6 +73,18 @@ export default function OrganizerPage() {
       toast.error('Пользователь не найден')
       navigate('/')
     }).finally(() => setLoading(false))
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+    setEventsLoading(true)
+    Promise.all([
+      usersApi.getEvents(userId, 'upcoming'),
+      usersApi.getEvents(userId, 'past'),
+    ]).then(([u, p]) => {
+      setUpcomingEvents(u.data)
+      setPastEvents(p.data)
+    }).catch(() => {}).finally(() => setEventsLoading(false))
   }, [userId])
 
   useEffect(() => {
@@ -169,6 +187,61 @@ export default function OrganizerPage() {
             На сайте с {format(new Date(profile.created_at), 'MMMM yyyy', { locale: ru })}
           </span>
         </div>
+      </div>
+
+      {/* Events section */}
+      <div className="bg-white rounded-2xl shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="font-semibold text-gray-900">Мероприятия</h2>
+        </div>
+        <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
+          <button
+            onClick={() => setEventsTab('upcoming')}
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${eventsTab === 'upcoming' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Предстоящие ({upcomingEvents.length})
+          </button>
+          <button
+            onClick={() => setEventsTab('past')}
+            className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${eventsTab === 'past' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Прошедшие ({pastEvents.length})
+          </button>
+        </div>
+        {eventsLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />)}
+          </div>
+        ) : (eventsTab === 'upcoming' ? upcomingEvents : pastEvents).length === 0 ? (
+          <p className="text-center text-gray-400 text-sm py-4">
+            {eventsTab === 'upcoming' ? 'Нет предстоящих мероприятий' : 'Нет прошедших мероприятий'}
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {(eventsTab === 'upcoming' ? upcomingEvents : pastEvents).map((e) => (
+              <button
+                key={e.id}
+                onClick={() => navigate(`/events/${e.id}`)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+              >
+                {e.image_url ? (
+                  <img src={e.image_url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-blue-100 flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-900 truncate">{e.title}</p>
+                  {e.date && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {format(new Date(e.date), 'd MMMM yyyy', { locale: ru })}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 flex-shrink-0">{e.participants_count}/{e.capacity}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Review form */}

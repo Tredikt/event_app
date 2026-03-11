@@ -1,12 +1,12 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Users, Bell, BellOff, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2 } from 'lucide-react'
+import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { eventsApi } from '@/api/events'
 import { notificationsApi } from '@/api/notifications'
-import type { AttendanceParticipant, Event, Participant } from '@/types'
+import type { AttendanceParticipant, Event, Participant, Review } from '@/types'
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
@@ -31,6 +31,15 @@ export default function EventDetailPage() {
   const [attendanceSaving, setAttendanceSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [instantiateDate, setInstantiateDate] = useState('')
+  const [instantiateLoading, setInstantiateLoading] = useState(false)
+  const [carouselIndex, setCarouselIndex] = useState(0)
+  const touchStartX = useRef<number | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [myReview, setMyReview] = useState<Review | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewText, setReviewText] = useState('')
+  const [reviewLoading, setReviewLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -41,7 +50,15 @@ export default function EventDetailPage() {
       toast.error('Мероприятие не найдено')
       navigate('/')
     })
+    eventsApi.getReviews(Number(id)).then((r) => setReviews(r.data)).catch(() => {})
   }, [id, navigate])
+
+  useEffect(() => {
+    if (!user) return
+    const mine = reviews.find((r) => r.reviewer.id === user.id) || null
+    setMyReview(mine)
+    if (mine) { setReviewRating(mine.rating); setReviewText(mine.text || '') }
+  }, [reviews, user])
 
   useEffect(() => {
     if (!event || !isAuthenticated || !user) return
@@ -61,6 +78,14 @@ export default function EventDetailPage() {
     }
   }, [event, isAuthenticated, user])
 
+  const carouselImages = event?.images && event.images.length > 0
+    ? event.images.map((img) => img.image_url)
+    : event?.image_url ? [event.image_url] : []
+  const carouselTotal = carouselImages.length
+
+  const prevSlide = useCallback(() => setCarouselIndex((i) => (i - 1 + carouselTotal) % carouselTotal), [carouselTotal])
+  const nextSlide = useCallback(() => setCarouselIndex((i) => (i + 1) % carouselTotal), [carouselTotal])
+
   if (loading || !event) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -75,7 +100,6 @@ export default function EventDetailPage() {
 
   const isOrganizer = user?.id === event.organizer.id
   const isPast = event.date ? new Date(event.date) < new Date() : false
-  const fillPercent = (event.participants_count / event.capacity) * 100
 
   const toggleAttended = (userId: number) => {
     setAttendance((prev) =>
@@ -134,10 +158,12 @@ export default function EventDetailPage() {
       if (subscribed) {
         await eventsApi.unsubscribe(event.id)
         setSubscribed(false)
+        setEvent((e) => e ? { ...e, subscriptions_count: Math.max(0, e.subscriptions_count - 1) } : e)
         toast.success('Подписка отменена')
       } else {
         await eventsApi.subscribe(event.id, !!user?.telegram_id, !!user?.email)
         setSubscribed(true)
+        setEvent((e) => e ? { ...e, subscriptions_count: e.subscriptions_count + 1 } : e)
         toast.success('Вы подписались на уведомления')
       }
     } catch (e: any) {
@@ -262,6 +288,33 @@ export default function EventDetailPage() {
     }
   }
 
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) { navigate('/login'); return }
+    setReviewLoading(true)
+    try {
+      const r = await eventsApi.createReview(Number(id), reviewRating, reviewText.trim() || undefined)
+      setReviews((prev) => [r.data, ...prev])
+      toast.success('Отзыв оставлен!')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка')
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const handleDeleteReview = async (reviewId: number) => {
+    try {
+      await eventsApi.deleteReview(Number(id), reviewId)
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId))
+      setMyReview(null)
+      setReviewText('')
+      setReviewRating(5)
+      toast.success('Отзыв удалён')
+    } catch {
+      toast.error('Ошибка удаления')
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
@@ -271,14 +324,59 @@ export default function EventDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="card overflow-hidden">
-            <div className="relative h-56 bg-gray-100">
-              {event.image_url ? (
-                <img src={event.image_url} alt={event.title} className="w-full h-full object-cover" />
+            <div
+              className="relative h-56 bg-gray-100 overflow-hidden select-none"
+              onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
+              onTouchEnd={(e) => {
+                if (touchStartX.current === null || carouselTotal <= 1) return
+                const diff = touchStartX.current - e.changedTouches[0].clientX
+                if (Math.abs(diff) > 40) diff > 0 ? nextSlide() : prevSlide()
+                touchStartX.current = null
+              }}
+            >
+              {carouselImages.length > 0 ? (
+                <img
+                  key={carouselIndex}
+                  src={carouselImages[carouselIndex]}
+                  alt={event.title}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-7xl" style={{ background: `${event.category.color}15` }}>
                   {event.category.icon}
                 </div>
               )}
+
+              {/* Prev / Next arrows */}
+              {carouselTotal > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+                    aria-label="Назад"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+                    aria-label="Вперёд"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                  {/* Dots */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {carouselImages.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCarouselIndex(i)}
+                        className={`rounded-full transition-all ${i === carouselIndex ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/50'}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+
               <div className="absolute top-3 left-3">
                 <span className="badge text-white" style={{ backgroundColor: event.category.color }}>
                   {event.category.icon} {event.category.name}
@@ -300,31 +398,89 @@ export default function EventDetailPage() {
             </div>
 
             <div className="p-5">
-              <h1 className="text-2xl font-bold text-gray-900 mb-3">{event.title}</h1>
+              <h1 className="text-xl font-bold text-gray-900 mb-4">{event.title}</h1>
 
-              <div className="space-y-2 mb-4">
+              {/* Action buttons row */}
+              {!isOrganizer && (
+                <div className="flex border-b border-gray-100 mb-4 -mx-5 px-5 pb-4">
+                  <button
+                    onClick={handleSubscribe}
+                    disabled={actionLoading}
+                    className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors"
+                  >
+                    <div className={clsx('w-11 h-11 rounded-full flex items-center justify-center', subscribed ? 'bg-blue-100' : 'bg-gray-100')}>
+                      {subscribed ? <Bell className="w-5 h-5 text-blue-700" /> : <Bell className="w-5 h-5 text-gray-500" />}
+                    </div>
+                    <span className="text-xs font-medium">Интересно</span>
+                  </button>
+                  <button
+                    onClick={handleJoin}
+                    disabled={actionLoading || (event.is_full && !joined)}
+                    className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors disabled:opacity-40"
+                  >
+                    <div className={clsx('w-11 h-11 rounded-full flex items-center justify-center', joined ? 'bg-blue-100' : 'bg-gray-100')}>
+                      <CheckCircle className={clsx('w-5 h-5', joined ? 'text-blue-700' : 'text-gray-500')} />
+                    </div>
+                    <span className="text-xs font-medium">{joined ? 'Пойду ✓' : event.is_full ? 'Мест нет' : 'Пойду'}</span>
+                  </button>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Ссылка скопирована!') }}
+                    className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Share2 className="w-5 h-5 text-gray-500" />
+                    </div>
+                    <span className="text-xs font-medium">Поделиться</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Stats block */}
+              <div className="bg-gray-50 rounded-2xl divide-y divide-gray-100 mb-4">
                 {event.date && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Calendar className="w-4 h-4 text-blue-700 flex-shrink-0" />
-                    {format(new Date(event.date), "d MMMM yyyy, HH:mm", { locale: ru })}
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      Дата
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {format(new Date(event.date), "d MMMM, HH:mm", { locale: ru })}
+                    </span>
                   </div>
                 )}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-600">Осталось мест</span>
+                  <span className={clsx('text-sm font-semibold', event.is_full ? 'text-red-500' : 'text-gray-900')}>
+                    {event.is_full ? 'Нет мест' : `${event.capacity - event.participants_count}/${event.capacity}`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-600">Пойдут</span>
+                  <span className="text-sm font-semibold text-gray-900">{event.participants_count}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-600">Интересуются</span>
+                  <span className="text-sm font-semibold text-gray-900">{event.subscriptions_count}</span>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-600">Стоимость участия</span>
+                  <span className="text-sm font-semibold text-green-600">Бесплатно</span>
+                </div>
+                {event.min_participants && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm text-gray-600">Мин. для проведения</span>
+                    <span className={clsx('text-sm font-semibold', event.participants_count >= event.min_participants ? 'text-green-600' : 'text-orange-500')}>
+                      {event.participants_count}/{event.min_participants}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 mb-4">
                 <div className="flex items-start gap-2 text-sm text-gray-600">
                   <MapPin className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
                   {event.address}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users className="w-4 h-4 text-blue-700 flex-shrink-0" />
-                  {event.participants_count} из {event.capacity} мест занято
-                  {event.is_full && <span className="text-red-500 font-medium">• Мест нет</span>}
-                </div>
-              </div>
-
-              <div className="h-2 bg-gray-100 rounded-full mb-5">
-                <div
-                  className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-blue-400')}
-                  style={{ width: `${Math.min(fillPercent, 100)}%` }}
-                />
               </div>
 
               <div className="prose prose-sm max-w-none text-gray-700">
@@ -332,6 +488,82 @@ export default function EventDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Reviews block */}
+          {!event.is_tour && (
+            <div className="card p-5">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Отзывы ({reviews.length})</h3>
+
+              {/* Write review form — past event, not organizer, participated */}
+              {isAuthenticated && !isOrganizer && isPast && joined && !myReview && (
+                <div className="mb-5 pb-5 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Оставить отзыв</p>
+                  <div className="flex gap-1 mb-3">
+                    {[1,2,3,4,5].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setReviewRating(s)}
+                        className={`text-2xl transition-transform hover:scale-110 ${s <= reviewRating ? 'text-yellow-400' : 'text-gray-200'}`}
+                      >★</button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    className="input resize-none w-full mb-3"
+                    rows={3}
+                    placeholder="Расскажите о мероприятии (необязательно)..."
+                  />
+                  <button
+                    onClick={handleSubmitReview}
+                    disabled={reviewLoading}
+                    className="btn-primary text-sm"
+                  >
+                    {reviewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
+                  </button>
+                </div>
+              )}
+
+              {/* Reviews list */}
+              {reviews.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">Отзывов пока нет</p>
+              ) : (
+                <div className="space-y-4">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="flex gap-3">
+                      {r.reviewer.avatar_url ? (
+                        <img src={r.reviewer.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
+                          {r.reviewer.first_name[0]}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-sm font-medium text-gray-900">{r.reviewer.first_name} {r.reviewer.last_name}</span>
+                            <span className="ml-2 text-xs text-gray-400">{format(new Date(r.created_at), 'd MMM yyyy', { locale: ru })}</span>
+                          </div>
+                          {user?.id === r.reviewer.id && (
+                            <button onClick={() => handleDeleteReview(r.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex gap-0.5 my-0.5">
+                          {[1,2,3,4,5].map((s) => (
+                            <span key={s} className={`text-sm ${s <= r.rating ? 'text-yellow-400' : 'text-gray-200'}`}>★</span>
+                          ))}
+                        </div>
+                        {r.text && <p className="text-sm text-gray-600 mt-0.5 leading-relaxed">{r.text}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {(event.latitude && event.longitude) && (
             <div className="card overflow-hidden">
@@ -416,28 +648,44 @@ export default function EventDetailPage() {
               </button>
             )}
 
-            {!isOrganizer && (
-              <div className="space-y-2">
+          </div>
+
+          {/* Instantiate catalog item as a real event */}
+          {isOrganizer && event.is_tour && (
+            <div className="card p-4">
+              <h3 className="font-semibold text-gray-900 mb-1">Создать мероприятие из формата</h3>
+              <p className="text-xs text-gray-500 mb-3">Выберите дату — появится разовое мероприятие в ленте с данными этого формата.</p>
+              <div className="flex gap-2">
+                <input
+                  type="datetime-local"
+                  value={instantiateDate}
+                  onChange={(e) => setInstantiateDate(e.target.value)}
+                  className="input flex-1 text-sm"
+                  style={{ colorScheme: 'light' }}
+                />
                 <button
-                  onClick={handleJoin}
-                  disabled={actionLoading || (event.is_full && !joined)}
-                  className={clsx('w-full btn text-sm', joined ? 'btn-secondary' : 'btn-primary', event.is_full && !joined && 'opacity-50')}
+                  disabled={!instantiateDate || instantiateLoading}
+                  onClick={async () => {
+                    if (!instantiateDate) return
+                    setInstantiateLoading(true)
+                    try {
+                      const { data: newEvent } = await eventsApi.instantiate(event.id, instantiateDate)
+                      toast.success('Мероприятие создано!')
+                      navigate(`/events/${newEvent.id}`)
+                    } catch {
+                      toast.error('Не удалось создать мероприятие')
+                    } finally {
+                      setInstantiateLoading(false)
+                    }
+                  }}
+                  className="btn-primary text-sm px-4 flex-shrink-0 flex items-center gap-1.5"
                 >
-                  {joined ? <><CheckCircle className="w-4 h-4" />Вы записаны</> : event.is_full ? 'Мест нет' : '✓ Записаться'}
-                </button>
-                <button onClick={handleSubscribe} disabled={actionLoading} className="w-full btn-secondary text-sm">
-                  {subscribed ? <><BellOff className="w-4 h-4" />Отменить напоминание</> : <><Bell className="w-4 h-4" />Напомнить перед событием</>}
+                  {instantiateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                  Создать
                 </button>
               </div>
-            )}
-
-            <button
-              onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Ссылка скопирована!') }}
-              className="w-full btn-secondary text-sm"
-            >
-              <Share2 className="w-4 h-4" />Поделиться
-            </button>
-          </div>
+            </div>
+          )}
 
           {isOrganizer && participants.length > 0 && !isPast && (
             <div className="card p-4">
@@ -448,15 +696,28 @@ export default function EventDetailPage() {
                 {participants.map((p) => (
                   <div key={p.id} className="flex items-center gap-2">
                     {p.user.avatar_url ? (
-                      <img src={p.user.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                      <img src={p.user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
                     ) : (
-                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0">
                         {p.user.first_name[0]}
                       </div>
                     )}
-                    <div className="min-w-0">
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.user.first_name} {p.user.last_name}</p>
-                      <p className="text-xs text-gray-400">{format(new Date(p.joined_at), 'd MMM, HH:mm', { locale: ru })}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-gray-400">{format(new Date(p.joined_at), 'd MMM, HH:mm', { locale: ru })}</span>
+                        {p.user.telegram_username && (
+                          <a
+                            href={`https://t.me/${p.user.telegram_username}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            @{p.user.telegram_username}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -494,7 +755,20 @@ export default function EventDetailPage() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.user.first_name} {a.user.last_name}</p>
-                      <p className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</span>
+                        {a.user.telegram_username && (
+                          <a
+                            href={`https://t.me/${a.user.telegram_username}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            @{a.user.telegram_username}
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <div className={clsx(
                       'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold',

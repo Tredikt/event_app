@@ -1,4 +1,5 @@
 import api from './client'
+import type { EventList } from '@/types'
 
 export interface OrganizerProfile {
   id: number
@@ -43,4 +44,6 @@ export const usersApi = {
   getEligibleEvents: (userId: number) => api.get<EligibleEvent[]>(`/users/${userId}/eligible-events`),
   createReview: (userId: number, data: { event_id: number; rating: number; text?: string }) =>
     api.post<ReviewOut>(`/users/${userId}/reviews`, data),
+  getEvents: (userId: number, tab: 'upcoming' | 'past') =>
+    api.get<EventList[]>(`/users/${userId}/events`, { params: { tab } }),
 }
