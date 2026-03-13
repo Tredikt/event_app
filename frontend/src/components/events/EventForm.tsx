@@ -6,6 +6,7 @@ import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
 import IosDatePicker from '@/components/ui/IosDatePicker'
+import ImageCropModal from '@/components/ui/ImageCropModal'
 
 interface ExistingImage {
   id: number
@@ -27,6 +28,7 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
 
   const isCatalog = useWatch({ control, name: 'is_tour' })
   const dateValue = useWatch({ control, name: 'date' })
+  const priceValue = useWatch({ control, name: 'price' })
   const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
   const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
 
@@ -49,6 +51,8 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
   const [newPreviews, setNewPreviews] = useState<string[]>([])
   const [imageError, setImageError] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [pendingOriginalName, setPendingOriginalName] = useState<string>('photo.jpg')
 
   const totalImages = existingImages.length + newFiles.length
   const hasImages = totalImages > 0
@@ -60,10 +64,25 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
   const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
-    setNewFiles((prev) => [...prev, ...files])
-    setNewPreviews((prev) => [...prev, ...files.map((f) => URL.createObjectURL(f))])
+    // Show crop modal for first selected file; queue rest if multiple selected
+    const file = files[0]
+    setPendingOriginalName(file.name || 'photo.jpg')
+    setCropSrc(URL.createObjectURL(file))
     setImageError(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleCropConfirm = (blob: Blob) => {
+    const file = new File([blob], pendingOriginalName.replace(/\.[^.]+$/, '') + '_cropped.jpg', { type: 'image/jpeg' })
+    setNewFiles((prev) => [...prev, file])
+    setNewPreviews((prev) => [...prev, URL.createObjectURL(blob)])
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+  }
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
   }
 
   const removeExisting = (id: number) => {
@@ -140,6 +159,13 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
     if (!hasImages) { setImageError(true); return }
     if (data.min_participants != null && isNaN(data.min_participants as number)) {
       data.min_participants = null
+    }
+    if (data.price != null && isNaN(data.price as number)) {
+      data.price = null
+    }
+    if (!data.price || data.price <= 0) {
+      data.price = null
+      data.payment_details = null
     }
     // datetime-local gives local time without timezone — convert to UTC ISO string
     if (data.date) {
@@ -326,9 +352,9 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Макс. участников <span className="text-red-500">*</span></label>
           <input
             type="number"
-            min={2}
+            min={1}
             max={10000}
-            {...register('capacity', { required: 'Обязательное поле', valueAsNumber: true, min: { value: 2, message: 'Минимум 2' } })}
+            {...register('capacity', { required: 'Обязательное поле', valueAsNumber: true, min: { value: 1, message: 'Минимум 1' } })}
             className="input"
           />
           {errors.capacity && <p className="text-xs text-red-500 mt-1">{errors.capacity.message}</p>}
@@ -347,6 +373,40 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
           />
           {errors.min_participants && <p className="text-xs text-red-500 mt-1">{errors.min_participants.message}</p>}
           <p className="text-xs text-gray-400 mt-1">Если не наберётся, мероприятие отменится за 6 часов до начала</p>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Стоимость участия (₽)</label>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          {...register('price', { valueAsNumber: true, min: { value: 0, message: 'Минимум 0' } })}
+          className="input"
+          placeholder="0 — бесплатно"
+        />
+        {errors.price && <p className="text-xs text-red-500 mt-1">{errors.price.message}</p>}
+        <p className="text-xs text-gray-400 mt-1">Оставьте пустым или 0 для бесплатного мероприятия</p>
+      </div>
+
+      {priceValue != null && priceValue > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Реквизиты оплаты <span className="text-red-500">*</span></label>
+          <textarea
+            {...register('payment_details', {
+              validate: (val) => {
+                const price = Number((document.querySelector('input[name="price"]') as HTMLInputElement)?.value || 0)
+                if (price > 0 && !val?.trim()) return 'Укажите реквизиты для перевода'
+                return true
+              }
+            })}
+            className="input resize-none"
+            rows={3}
+            placeholder="Например: СБП на номер +7 999 000 00 00 (Иван И.)"
+          />
+          {errors.payment_details && <p className="text-xs text-red-500 mt-1">{errors.payment_details.message}</p>}
+          <p className="text-xs text-gray-400 mt-1">Участники увидят эти реквизиты при регистрации</p>
         </div>
       )}
 
@@ -424,6 +484,14 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
       <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
         {isSubmitting ? <><Loader className="w-4 h-4 animate-spin" />Сохранение...</> : submitLabel}
       </button>
+
+      {cropSrc && (
+        <ImageCropModal
+          src={cropSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </form>
   )
 }

@@ -59,6 +59,8 @@ async def seed_categories():
         {"name": "Еда", "icon": "🍕", "color": "#EC4899"},
         {"name": "Игры", "icon": "🎮", "color": "#6366F1"},
         {"name": "Путешествия", "icon": "✈️", "color": "#14B8A6"},
+        {"name": "Танцы", "icon": "💃", "color": "#F43F5E"},
+        {"name": "Прочее", "icon": "🔖", "color": "#78716C"},
     ]
     target_names = {c["name"] for c in categories}
     async with AsyncSessionLocal() as db:

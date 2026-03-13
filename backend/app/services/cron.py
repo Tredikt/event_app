@@ -113,6 +113,53 @@ async def _cancel_underfilled_events():
         await db.commit()
 
 
+async def _send_event_reminders():
+    """Send reminder notifications 2 hours before an event to all subscribers."""
+    from app.models.event import Event, EventSubscription
+    from app.services.notifications import notify_event_reminder
+
+    now = datetime.utcnow()
+    window_start = now + timedelta(hours=1, minutes=50)
+    window_end = now + timedelta(hours=2, minutes=10)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(EventSubscription)
+            .join(EventSubscription.event)
+            .join(EventSubscription.user)
+            .options(
+                selectinload(EventSubscription.event),
+                selectinload(EventSubscription.user),
+            )
+            .where(EventSubscription.reminder_sent == False)  # noqa: E712
+            .where(Event.date >= window_start)
+            .where(Event.date <= window_end)
+        )
+        subs = result.scalars().all()
+
+        for sub in subs:
+            event = sub.event
+            user = sub.user
+            try:
+                date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else ""
+                tg_id = user.telegram_id if sub.notify_telegram else None
+                email = user.email if sub.notify_email else None
+                await notify_event_reminder(
+                    telegram_id=tg_id,
+                    email=email,
+                    event_title=event.title,
+                    event_date=date_str,
+                    event_address=event.address or "",
+                )
+                sub.reminder_sent = True
+                logger.info("Reminder sent for event %s to user %s", event.id, user.id)
+            except Exception as e:
+                logger.error("Error sending reminder event=%s user=%s: %s", event.id, user.id, e)
+
+        if subs:
+            await db.commit()
+
+
 async def _complete_past_events():
     """Mark active non-tour events whose date has passed as completed."""
     from app.models.event import Event, EventStatus
@@ -148,6 +195,10 @@ async def run_cron():
             await _complete_past_events()
         except Exception as e:
             logger.error("Cron complete-past error: %s", e)
+        try:
+            await _send_event_reminders()
+        except Exception as e:
+            logger.error("Cron reminders error: %s", e)
         try:
             await _send_attendance_notifications()
         except Exception as e:

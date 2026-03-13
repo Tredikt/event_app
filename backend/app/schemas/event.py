@@ -39,6 +39,8 @@ class EventCreate(BaseModel):
     longitude: Optional[float] = None
     category_id: int
     is_tour: bool = False
+    price: Optional[float] = None
+    payment_details: Optional[str] = None
 
     @field_validator('date', mode='after')
     @classmethod
@@ -58,6 +60,8 @@ class EventUpdate(BaseModel):
     category_id: Optional[int] = None
     status: Optional[EventStatus] = None
     is_tour: Optional[bool] = None
+    price: Optional[float] = None
+    payment_details: Optional[str] = None
 
     @field_validator('date', mode='after')
     @classmethod
@@ -93,6 +97,8 @@ class EventOut(BaseModel):
     organizer: UserPublic
     created_at: datetime
     is_full: bool
+    price: Optional[float] = None
+    payment_details: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -113,6 +119,8 @@ class EventListOut(BaseModel):
     category: CategoryOut
     organizer: UserPublic
     is_full: bool
+    price: Optional[float] = None
+    payment_details: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -121,9 +129,21 @@ class ParticipantOut(BaseModel):
     id: int
     user: UserPublic
     status: ParticipantStatus
+    payment_status: Optional[str] = None
     joined_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_participant(cls, p: object) -> "ParticipantOut":
+        status = p.status  # type: ignore[attr-defined]
+        return cls(
+            id=p.id,  # type: ignore[attr-defined]
+            user=p.user,  # type: ignore[attr-defined]
+            status=status,
+            payment_status=status.value,
+            joined_at=p.joined_at,  # type: ignore[attr-defined]
+        )
 
 
 class SubscriptionCreate(BaseModel):

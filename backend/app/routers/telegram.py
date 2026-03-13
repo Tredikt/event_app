@@ -467,6 +467,8 @@ async def start_bot() -> Optional[Bot]:
     _bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
     # Drop any active webhook so polling works cleanly
     await _bot.delete_webhook(drop_pending_updates=False)
+    # Remove bot command menu (the "Menu" button in Telegram UI)
+    await _bot.delete_my_commands()
     import asyncio
     asyncio.create_task(dp.start_polling(_bot, allowed_updates=["message", "callback_query"]))
     logger.info("Aiogram bot polling started")

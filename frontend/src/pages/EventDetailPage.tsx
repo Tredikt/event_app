@@ -40,6 +40,8 @@ export default function EventDetailPage() {
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewText, setReviewText] = useState('')
   const [reviewLoading, setReviewLoading] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
+  const [paymentModal, setPaymentModal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -70,7 +72,11 @@ export default function EventDetailPage() {
       }
     } else {
       eventsApi.myStatus(event.id)
-        .then((r) => { setJoined(r.data.joined); setSubscribed(r.data.subscribed) })
+        .then((r) => {
+          setJoined(r.data.joined)
+          setSubscribed(r.data.subscribed)
+          setPaymentStatus(r.data.payment_status)
+        })
         .catch(() => {})
       notificationsApi.getFollowStatus(event.organizer.id)
         .then((r) => setFollowing(r.data.following))
@@ -131,12 +137,22 @@ export default function EventDetailPage() {
       navigate('/telegram/connect')
       return
     }
+
+    // Paid event: show payment modal instead of joining directly
+    if (event.price && event.price > 0 && !joined && !paymentStatus) {
+      setPaymentModal(true)
+      return
+    }
+
     setActionLoading(true)
     try {
-      if (joined) {
+      if (joined || paymentStatus) {
         await eventsApi.leave(event.id)
-        setEvent((e) => e ? { ...e, participants_count: e.participants_count - 1, is_full: false } : e)
+        if (joined) {
+          setEvent((e) => e ? { ...e, participants_count: e.participants_count - 1, is_full: false } : e)
+        }
         setJoined(false)
+        setPaymentStatus(null)
         toast.success('Вы отменили участие')
       } else {
         await eventsApi.join(event.id)
@@ -148,6 +164,57 @@ export default function EventDetailPage() {
       toast.error(e.response?.data?.detail || 'Ошибка')
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  const handleSubmitPaymentApplication = async () => {
+    if (!isAuthenticated) { navigate('/login'); return }
+    setActionLoading(true)
+    try {
+      await eventsApi.join(event.id)
+      setPaymentStatus('pending_payment')
+      setPaymentModal(false)
+      toast.success('Заявка подана! Переведите оплату и нажмите «Я оплатил»')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleConfirmPayment = async () => {
+    setActionLoading(true)
+    try {
+      await eventsApi.confirmPayment(event.id)
+      setPaymentStatus('payment_submitted')
+      toast.success('Оплата отмечена! Ожидайте подтверждения организатора')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleApproveParticipant = async (userId: number) => {
+    try {
+      await eventsApi.approveParticipant(event.id, userId)
+      setParticipants((prev) => prev.map((p) =>
+        p.user.id === userId ? { ...p, status: 'registered' as const, payment_status: 'registered' } : p
+      ))
+      setEvent((e) => e ? { ...e, participants_count: e.participants_count + 1 } : e)
+      toast.success('Участие подтверждено')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка')
+    }
+  }
+
+  const handleRejectParticipant = async (userId: number) => {
+    try {
+      await eventsApi.rejectParticipant(event.id, userId)
+      setParticipants((prev) => prev.filter((p) => p.user.id !== userId))
+      toast.success('Заявка отклонена')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'Ошибка')
     }
   }
 
@@ -411,18 +478,41 @@ export default function EventDetailPage() {
                     <div className={clsx('w-11 h-11 rounded-full flex items-center justify-center', subscribed ? 'bg-blue-100' : 'bg-gray-100')}>
                       {subscribed ? <Bell className="w-5 h-5 text-blue-700" /> : <Bell className="w-5 h-5 text-gray-500" />}
                     </div>
-                    <span className="text-xs font-medium">Интересно</span>
+                    <span className="text-xs font-medium">{subscribed ? 'Напомнить ✓' : 'Напомнить'}</span>
                   </button>
-                  <button
-                    onClick={handleJoin}
-                    disabled={actionLoading || (event.is_full && !joined)}
-                    className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors disabled:opacity-40"
-                  >
-                    <div className={clsx('w-11 h-11 rounded-full flex items-center justify-center', joined ? 'bg-blue-100' : 'bg-gray-100')}>
-                      <CheckCircle className={clsx('w-5 h-5', joined ? 'text-blue-700' : 'text-gray-500')} />
-                    </div>
-                    <span className="text-xs font-medium">{joined ? 'Пойду ✓' : event.is_full ? 'Мест нет' : 'Пойду'}</span>
-                  </button>
+                  {paymentStatus === 'pending_payment' ? (
+                    <button
+                      onClick={handleConfirmPayment}
+                      disabled={actionLoading}
+                      className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-green-700 transition-colors disabled:opacity-40"
+                    >
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center bg-yellow-100">
+                        <CheckCircle className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <span className="text-xs font-medium text-yellow-700">Я оплатил</span>
+                    </button>
+                  ) : paymentStatus === 'payment_submitted' ? (
+                    <button
+                      disabled
+                      className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-400 cursor-default"
+                    >
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center bg-gray-100">
+                        <CheckCircle className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <span className="text-xs font-medium">На рассмотрении</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleJoin}
+                      disabled={actionLoading || (event.is_full && !joined && !paymentStatus)}
+                      className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors disabled:opacity-40"
+                    >
+                      <div className={clsx('w-11 h-11 rounded-full flex items-center justify-center', joined ? 'bg-blue-100' : 'bg-gray-100')}>
+                        <CheckCircle className={clsx('w-5 h-5', joined ? 'text-blue-700' : 'text-gray-500')} />
+                      </div>
+                      <span className="text-xs font-medium">{joined ? 'Пойду ✓' : event.is_full ? 'Мест нет' : 'Пойду'}</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Ссылка скопирована!') }}
                     className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors"
@@ -464,7 +554,9 @@ export default function EventDetailPage() {
                 </div>
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-sm text-gray-600">Стоимость участия</span>
-                  <span className="text-sm font-semibold text-green-600">Бесплатно</span>
+                  <span className={clsx('text-sm font-semibold', event.price ? 'text-gray-900' : 'text-green-600')}>
+                    {event.price ? `${event.price.toLocaleString('ru')} ₽` : 'Бесплатно'}
+                  </span>
                 </div>
                 {event.min_participants && (
                   <div className="flex items-center justify-between px-4 py-3">
@@ -690,15 +782,15 @@ export default function EventDetailPage() {
           {isOrganizer && participants.length > 0 && !isPast && (
             <div className="card p-4">
               <h3 className="font-semibold mb-3 text-gray-900">
-                Участники ({participants.length}/{event.capacity})
+                Участники ({participants.filter(p => p.status === 'registered').length}/{event.capacity})
               </h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-2">
+                  <div key={p.id} className="flex items-start gap-2">
                     {p.user.avatar_url ? (
-                      <img src={p.user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                      <img src={p.user.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0 mt-0.5">
                         {p.user.first_name[0]}
                       </div>
                     )}
@@ -718,6 +810,38 @@ export default function EventDetailPage() {
                           </a>
                         )}
                       </div>
+                      {/* Payment status badge */}
+                      {p.status === 'pending_payment' && (
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-md font-medium">Ожидает оплаты</span>
+                          <button
+                            onClick={() => handleRejectParticipant(p.user.id)}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      )}
+                      {p.status === 'payment_submitted' && (
+                        <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md font-medium">Оплата отправлена</span>
+                          <button
+                            onClick={() => handleApproveParticipant(p.user.id)}
+                            className="text-xs text-green-600 hover:text-green-800 font-semibold"
+                          >
+                            Принять
+                          </button>
+                          <button
+                            onClick={() => handleRejectParticipant(p.user.id)}
+                            className="text-xs text-red-500 hover:text-red-700 font-medium"
+                          >
+                            Отклонить
+                          </button>
+                        </div>
+                      )}
+                      {p.status === 'registered' && event.price != null && event.price > 0 && (
+                        <span className="mt-1 inline-block text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-md font-medium">Оплата подтверждена</span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -790,6 +914,48 @@ export default function EventDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Payment modal */}
+      {paymentModal && event.price != null && event.price > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPaymentModal(false)} />
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Оплата участия</h3>
+              <button onClick={() => setPaymentModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="text-3xl font-bold text-gray-900 mb-3">
+              {event.price.toLocaleString('ru')} ₽
+            </div>
+            {event.payment_details && (
+              <div className="bg-gray-50 rounded-xl p-3 mb-4">
+                <p className="text-xs text-gray-500 mb-1 font-medium">Реквизиты для оплаты:</p>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap">{event.payment_details}</p>
+              </div>
+            )}
+            <p className="text-sm text-gray-500 mb-5">
+              После оплаты нажмите «Я оплатил» — организатор проверит и подтвердит участие.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPaymentModal(false)}
+                className="flex-1 btn-secondary"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSubmitPaymentApplication}
+                disabled={actionLoading}
+                className="flex-1 btn-primary"
+              >
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Подать заявку'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirm modal */}
       {deleteConfirm && (

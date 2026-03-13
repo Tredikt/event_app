@@ -23,6 +23,8 @@ export interface CreateEventData {
   longitude?: number
   category_id: number
   is_tour?: boolean
+  price?: number | null
+  payment_details?: string | null
 }
 
 export const eventsApi = {
@@ -63,7 +65,15 @@ export const eventsApi = {
   getParticipants: (id: number) => api.get<Participant[]>(`/events/${id}/participants`),
 
   myStatus: (id: number) =>
-    api.get<{ joined: boolean; subscribed: boolean }>(`/events/${id}/my-status`),
+    api.get<{ joined: boolean; subscribed: boolean; payment_status: string | null }>(`/events/${id}/my-status`),
+
+  confirmPayment: (id: number) => api.post(`/events/${id}/payment-confirm`),
+
+  approveParticipant: (eventId: number, userId: number) =>
+    api.post(`/events/${eventId}/participants/${userId}/approve`),
+
+  rejectParticipant: (eventId: number, userId: number) =>
+    api.post(`/events/${eventId}/participants/${userId}/reject`),
 
   subscribe: (id: number, notify_telegram: boolean, notify_email: boolean) =>
     api.post<Subscription>(`/events/${id}/subscribe`, { notify_telegram, notify_email }),

@@ -18,6 +18,8 @@ class EventStatus(str, enum.Enum):
 class ParticipantStatus(str, enum.Enum):
     registered = "registered"
     cancelled = "cancelled"
+    pending_payment = "pending_payment"
+    payment_submitted = "payment_submitted"
 
 
 class EventCategory(Base):
@@ -51,6 +53,8 @@ class Event(Base):
     is_tour: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     attendance_notified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     min_participants: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    payment_details: Mapped[str | None] = mapped_column(Text, nullable=True)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("event_categories.id"))
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -103,6 +107,7 @@ class EventSubscription(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     notify_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
     notify_email: Mapped[bool] = mapped_column(Boolean, default=False)
+    reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
     event: Mapped["Event"] = relationship("Event", back_populates="subscriptions")

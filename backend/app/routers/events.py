@@ -36,7 +36,7 @@ from app.schemas.event import (
 )
 from app.services.event_notifications import dispatch_new_event_notifications
 from app.services.file_service import save_event_image
-from app.services.notifications import notify_attendance_request, notify_event_cancelled, notify_event_update, notify_joined_event, notify_new_participant, notify_participant_left
+from app.services.notifications import notify_attendance_request, notify_event_cancelled, notify_event_update, notify_joined_event, notify_new_participant, notify_participant_left, notify_payment_submitted, notify_payment_approved, notify_payment_rejected
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -455,42 +455,60 @@ async def join_event(
             and_(
                 EventParticipant.event_id == event_id,
                 EventParticipant.user_id == current_user.id,
-                EventParticipant.status == ParticipantStatus.registered,
+                EventParticipant.status.in_([
+                    ParticipantStatus.registered,
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
             )
         )
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Вы уже записаны на это мероприятие")
 
-    participant = EventParticipant(event_id=event_id, user_id=current_user.id)
-    db.add(participant)
-    event.participants_count += 1
-    await db.commit()
+    is_paid = event.price and event.price > 0
 
-    organizer = event.organizer
-    from app.core.config import settings
-    event_date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+    if is_paid:
+        # Paid event: create participant with pending_payment status, don't increment count
+        participant = EventParticipant(
+            event_id=event_id,
+            user_id=current_user.id,
+            status=ParticipantStatus.pending_payment,
+        )
+        db.add(participant)
+        await db.commit()
+        return {"message": "Заявка подана, ожидайте подтверждения оплаты", "payment_required": True}
+    else:
+        # Free event: existing flow
+        participant = EventParticipant(event_id=event_id, user_id=current_user.id)
+        db.add(participant)
+        event.participants_count += 1
+        await db.commit()
 
-    await notify_new_participant(
-        organizer.telegram_id,
-        organizer.email,
-        f"{current_user.first_name} {current_user.last_name}",
-        event.title,
-        event.participants_count,
-        event.capacity,
-        participant_telegram_username=current_user.telegram_username,
-    )
-    await notify_joined_event(
-        participant_telegram_id=current_user.telegram_id,
-        event_title=event.title,
-        event_date=event_date_str,
-        event_address=event.address,
-        organizer_name=f"{organizer.first_name} {organizer.last_name}",
-        organizer_telegram_username=organizer.telegram_username,
-        frontend_url=settings.FRONTEND_URL,
-        event_id=event_id,
-    )
-    return {"message": "Вы успешно записались"}
+        organizer = event.organizer
+        from app.core.config import settings
+        event_date_str = event.date.strftime("%d.%m.%Y %H:%M") if event.date else None
+
+        await notify_new_participant(
+            organizer.telegram_id,
+            organizer.email,
+            f"{current_user.first_name} {current_user.last_name}",
+            event.title,
+            event.participants_count,
+            event.capacity,
+            participant_telegram_username=current_user.telegram_username,
+        )
+        await notify_joined_event(
+            participant_telegram_id=current_user.telegram_id,
+            event_title=event.title,
+            event_date=event_date_str,
+            event_address=event.address,
+            organizer_name=f"{organizer.first_name} {organizer.last_name}",
+            organizer_telegram_username=organizer.telegram_username,
+            frontend_url=settings.FRONTEND_URL,
+            event_id=event_id,
+        )
+        return {"message": "Вы успешно записались"}
 
 
 @router.delete("/{event_id}/join", status_code=status.HTTP_200_OK)
@@ -504,7 +522,11 @@ async def leave_event(
             and_(
                 EventParticipant.event_id == event_id,
                 EventParticipant.user_id == current_user.id,
-                EventParticipant.status == ParticipantStatus.registered,
+                EventParticipant.status.in_([
+                    ParticipantStatus.registered,
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
             )
         )
     )
@@ -512,13 +534,15 @@ async def leave_event(
     if not record:
         raise HTTPException(status_code=404, detail="Вы не записаны на это мероприятие")
 
+    was_registered = record.status == ParticipantStatus.registered
     record.status = ParticipantStatus.cancelled
     event = await db.get(Event, event_id, options=[selectinload(Event.organizer)])
-    if event and event.participants_count > 0:
+    # Only decrement count if they were fully registered
+    if event and was_registered and event.participants_count > 0:
         event.participants_count -= 1
     await db.commit()
 
-    if event:
+    if event and was_registered:
         participant_name = f"{current_user.first_name} {current_user.last_name}".strip()
         asyncio.create_task(notify_participant_left(
             organizer_telegram_id=event.organizer.telegram_id,
@@ -530,6 +554,140 @@ async def leave_event(
         ))
 
     return {"message": "Вы отменили участие"}
+
+
+@router.post("/{event_id}/payment-confirm", status_code=status.HTTP_200_OK)
+async def confirm_payment(
+    event_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """User confirms they have paid; status becomes payment_submitted and organizer is notified."""
+    result = await db.execute(
+        select(EventParticipant).where(
+            and_(
+                EventParticipant.event_id == event_id,
+                EventParticipant.user_id == current_user.id,
+                EventParticipant.status == ParticipantStatus.pending_payment,
+            )
+        )
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Заявка на оплату не найдена")
+
+    record.status = ParticipantStatus.payment_submitted
+    await db.commit()
+
+    event = await db.execute(
+        select(Event).options(selectinload(Event.organizer)).where(Event.id == event_id)
+    )
+    ev = event.scalar_one_or_none()
+    if ev:
+        asyncio.create_task(notify_payment_submitted(
+            organizer_telegram_id=ev.organizer.telegram_id,
+            participant_name=f"{current_user.first_name} {current_user.last_name}",
+            event_title=ev.title,
+            participant_telegram_username=current_user.telegram_username,
+        ))
+
+    return {"message": "Оплата отмечена, ожидайте подтверждения организатора"}
+
+
+@router.post("/{event_id}/participants/{user_id}/approve", status_code=status.HTTP_200_OK)
+async def approve_participant(
+    event_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Organizer approves payment: status -> registered, participants_count++, notify user."""
+    event_result = await db.execute(
+        select(Event).options(selectinload(Event.organizer)).where(Event.id == event_id)
+    )
+    ev = event_result.scalar_one_or_none()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if ev.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только организатор")
+
+    result = await db.execute(
+        select(EventParticipant).where(
+            and_(
+                EventParticipant.event_id == event_id,
+                EventParticipant.user_id == user_id,
+                EventParticipant.status.in_([
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
+            )
+        )
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+
+    record.status = ParticipantStatus.registered
+    ev.participants_count += 1
+    await db.commit()
+
+    participant_user = await db.get(User, user_id)
+    event_date_str = ev.date.strftime("%d.%m.%Y %H:%M") if ev.date else None
+    if participant_user:
+        asyncio.create_task(notify_payment_approved(
+            user_telegram_id=participant_user.telegram_id,
+            event_title=ev.title,
+            event_date=event_date_str,
+            event_address=ev.address,
+        ))
+
+    return {"message": "Участие подтверждено"}
+
+
+@router.post("/{event_id}/participants/{user_id}/reject", status_code=status.HTTP_200_OK)
+async def reject_participant(
+    event_id: int,
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Organizer rejects payment application: status -> cancelled, notify user."""
+    event_result = await db.execute(
+        select(Event).where(Event.id == event_id)
+    )
+    ev = event_result.scalar_one_or_none()
+    if not ev:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if ev.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только организатор")
+
+    result = await db.execute(
+        select(EventParticipant).where(
+            and_(
+                EventParticipant.event_id == event_id,
+                EventParticipant.user_id == user_id,
+                EventParticipant.status.in_([
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
+            )
+        )
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+
+    record.status = ParticipantStatus.cancelled
+    await db.commit()
+
+    participant_user = await db.get(User, user_id)
+    if participant_user:
+        asyncio.create_task(notify_payment_rejected(
+            user_telegram_id=participant_user.telegram_id,
+            event_title=ev.title,
+        ))
+
+    return {"message": "Заявка отклонена"}
 
 
 @router.get("/{event_id}/participants", response_model=list[ParticipantOut])
@@ -550,12 +708,17 @@ async def get_participants(
         .where(
             and_(
                 EventParticipant.event_id == event_id,
-                EventParticipant.status == ParticipantStatus.registered,
+                EventParticipant.status.in_([
+                    ParticipantStatus.registered,
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
             )
         )
         .order_by(EventParticipant.joined_at.asc())
     )
-    return result.scalars().all()
+    participants = result.scalars().all()
+    return [ParticipantOut.from_participant(p) for p in participants]
 
 
 @router.post("/{event_id}/subscribe", response_model=SubscriptionOut)
@@ -618,23 +781,30 @@ async def my_event_status(
     current_user: User = Depends(get_current_user),
 ):
     """Return whether current user is joined and/or subscribed to this event."""
-    joined = await db.execute(
+    participant_result = await db.execute(
         select(EventParticipant).where(
             and_(
                 EventParticipant.event_id == event_id,
                 EventParticipant.user_id == current_user.id,
-                EventParticipant.status == ParticipantStatus.registered,
+                EventParticipant.status.in_([
+                    ParticipantStatus.registered,
+                    ParticipantStatus.pending_payment,
+                    ParticipantStatus.payment_submitted,
+                ]),
             )
         )
     )
+    participant = participant_result.scalar_one_or_none()
     subscribed = await db.execute(
         select(EventSubscription).where(
             and_(EventSubscription.event_id == event_id, EventSubscription.user_id == current_user.id)
         )
     )
+    payment_status = participant.status.value if participant else None
     return {
-        "joined": joined.scalar_one_or_none() is not None,
+        "joined": participant is not None and participant.status == ParticipantStatus.registered,
         "subscribed": subscribed.scalar_one_or_none() is not None,
+        "payment_status": payment_status,
     }
 
 

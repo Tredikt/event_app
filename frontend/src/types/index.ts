@@ -1,6 +1,6 @@
 export type Gender = 'male' | 'female' | 'other'
 export type EventStatus = 'active' | 'cancelled' | 'completed'
-export type ParticipantStatus = 'registered' | 'cancelled'
+export type ParticipantStatus = 'registered' | 'cancelled' | 'pending_payment' | 'payment_submitted'
 
 export interface Category {
   id: number
@@ -54,6 +54,8 @@ export interface Event {
   organizer: UserPublic
   created_at: string
   is_full: boolean
+  price: number | null
+  payment_details: string | null
 }
 
 export interface EventList {
@@ -72,12 +74,15 @@ export interface EventList {
   category: Category
   organizer: UserPublic
   is_full: boolean
+  price: number | null
+  payment_details: string | null
 }
 
 export interface Participant {
   id: number
   user: UserPublic
   status: ParticipantStatus
+  payment_status: string | null
   joined_at: string
 }
 

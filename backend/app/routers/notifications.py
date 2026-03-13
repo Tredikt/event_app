@@ -1,5 +1,7 @@
 """Notification settings, category and organizer subscription endpoints."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,8 @@ from app.schemas.notifications import (
     NotificationSettingsUpdate,
     OrganizerSubscriptionOut,
 )
+
+from app.services.notifications import notify_new_follower
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -182,6 +186,13 @@ async def follow_organizer(
     sub = OrganizerSubscription(follower_id=current_user.id, organizer_id=organizer_id)
     db.add(sub)
     await db.commit()
+
+    follower_name = f"{current_user.first_name} {current_user.last_name}".strip()
+    asyncio.create_task(notify_new_follower(
+        organizer_telegram_id=organizer.telegram_id,
+        follower_name=follower_name,
+        follower_telegram_username=current_user.telegram_username,
+    ))
 
     result = await db.execute(
         select(OrganizerSubscription)

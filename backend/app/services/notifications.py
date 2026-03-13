@@ -202,6 +202,73 @@ async def notify_event_cancelled(
         await send_telegram_message(participant_telegram_id, text)
 
 
+async def notify_new_follower(
+    organizer_telegram_id: Optional[int],
+    follower_name: str,
+    follower_telegram_username: Optional[str] = None,
+):
+    tg_line = f"\n📲 @{follower_telegram_username}" if follower_telegram_username else ""
+    text = (
+        f"🔔 <b>Новый подписчик!</b>\n\n"
+        f"👤 {follower_name} подписался на ваши мероприятия{tg_line}"
+    )
+    if organizer_telegram_id:
+        await send_telegram_message(organizer_telegram_id, text)
+
+
+async def notify_payment_submitted(
+    organizer_telegram_id: Optional[int],
+    participant_name: str,
+    event_title: str,
+    participant_telegram_username: Optional[str] = None,
+):
+    """Notify organizer that a participant has submitted payment proof."""
+    tg_line = f"\n📲 Telegram: @{participant_telegram_username}" if participant_telegram_username else ""
+    text = (
+        f"💳 <b>Новая заявка об оплате!</b>\n\n"
+        f"📌 <b>{event_title}</b>\n"
+        f"👤 {participant_name} сообщил об оплате{tg_line}\n\n"
+        f"Подтвердите участие в приложении."
+    )
+    if organizer_telegram_id:
+        await send_telegram_message(organizer_telegram_id, text)
+
+
+async def notify_payment_approved(
+    user_telegram_id: Optional[int],
+    event_title: str,
+    event_date: Optional[str] = None,
+    event_address: Optional[str] = None,
+):
+    """Notify participant that their payment was approved and participation confirmed."""
+    date_line = f"📅 {event_date}\n" if event_date else ""
+    address_line = f"📍 {event_address}\n" if event_address else ""
+    text = (
+        f"✅ <b>Участие подтверждено!</b>\n\n"
+        f"📌 <b>{event_title}</b>\n"
+        f"{date_line}"
+        f"{address_line}\n"
+        f"Ваша оплата принята, вы в списке участников. До встречи на мероприятии!"
+    )
+    if user_telegram_id:
+        await send_telegram_message(user_telegram_id, text)
+
+
+async def notify_payment_rejected(
+    user_telegram_id: Optional[int],
+    event_title: str,
+):
+    """Notify participant that their payment application was rejected."""
+    text = (
+        f"❌ <b>Заявка отклонена</b>\n\n"
+        f"📌 <b>{event_title}</b>\n\n"
+        f"К сожалению, организатор отклонил вашу заявку. "
+        f"Свяжитесь с организатором для уточнения деталей."
+    )
+    if user_telegram_id:
+        await send_telegram_message(user_telegram_id, text)
+
+
 async def notify_new_event_to_subscribers(
     *,
     event_id: int,

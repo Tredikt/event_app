@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { Loader, MapPin } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { authApi, type RegisterData } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
@@ -13,6 +13,17 @@ export default function RegisterPage() {
   const password = watch('password')
   const [agreed, setAgreed] = useState(false)
   const [agreeError, setAgreeError] = useState(false)
+  const [phoneDigits, setPhoneDigits] = useState('')
+  const phoneRef = useRef<HTMLInputElement>(null)
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+    setPhoneDigits(digits)
+    // Write +7XXXXXXXXXX into the form value
+    const { onChange } = register('phone', { required: 'Обязательно' })
+    const syntheticEvent = { target: { value: '+7' + digits } } as React.ChangeEvent<HTMLInputElement>
+    onChange(syntheticEvent)
+  }
 
   const detectCity = async (): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -87,7 +98,20 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Номер телефона *</label>
-              <input {...register('phone', { required: 'Обязательно' })} className="input" placeholder="+7 999 000 00 00" />
+              <div className="flex items-center input p-0 overflow-hidden">
+                <span className="pl-3 pr-2 text-gray-700 font-medium select-none">+7</span>
+                <div className="w-px h-5 bg-gray-300" />
+                <input
+                  ref={phoneRef}
+                  type="tel"
+                  inputMode="numeric"
+                  value={phoneDigits}
+                  onChange={handlePhoneChange}
+                  className="flex-1 px-2 py-2 outline-none bg-transparent"
+                  placeholder="999 000 00 00"
+                  maxLength={10}
+                />
+              </div>
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
 
