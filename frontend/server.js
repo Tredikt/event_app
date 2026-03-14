@@ -10,13 +10,15 @@ const PORT = process.env.PORT || 3000
 
 const app = express()
 
-// Proxy API and uploads to FastAPI
-app.use('/api', createProxyMiddleware({
+// Proxy API to FastAPI (HTTP + WebSocket)
+const apiProxy = createProxyMiddleware({
   target: BACKEND_URL,
   changeOrigin: true,
+  ws: true,
   pathRewrite: { '^/api': '' },
-  on: { error: (err, req, res) => res.status(502).send('Backend unavailable') },
-}))
+  on: { error: (err, req, res) => { if (res?.status) res.status(502).send('Backend unavailable') } },
+})
+app.use('/api', apiProxy)
 
 // /uploads — must keep full path (Express strips prefix, so restore it)
 app.use('/uploads', createProxyMiddleware({
@@ -79,4 +81,6 @@ app.get('*', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
+// Forward WebSocket upgrade requests to backend via apiProxy
+server.on('upgrade', apiProxy.upgrade)

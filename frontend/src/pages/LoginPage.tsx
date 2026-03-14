@@ -45,6 +45,7 @@ export default function LoginPage() {
                 {...register('phone', { required: 'Введите телефон или email' })}
                 className="input"
                 placeholder="+7 999 000 00 00 или your@email.com"
+                autoComplete="username"
               />
               {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
             </div>
@@ -55,6 +56,7 @@ export default function LoginPage() {
                 type="password"
                 {...register('password', { required: 'Введите пароль' })}
                 className="input"
+                autoComplete="current-password"
               />
               {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
             </div>

@@ -9,6 +9,7 @@ export interface EventFilters {
   is_free?: boolean
   search?: string
   is_tour?: boolean
+  city?: string
   skip?: number
   limit?: number
 }

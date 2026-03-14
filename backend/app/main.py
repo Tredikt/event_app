@@ -185,10 +185,20 @@ async def migrate_schema():
                 id SERIAL PRIMARY KEY,
                 chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
                 sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                text TEXT NOT NULL,
+                text TEXT,
+                image_url VARCHAR(500),
                 created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                 is_read BOOLEAN NOT NULL DEFAULT FALSE
             )
+        """))
+        await conn.execute(text("""
+            ALTER TABLE chat_messages
+                ALTER COLUMN text DROP NOT NULL
+        """))
+        await conn.execute(text("""
+            ALTER TABLE chat_messages
+                ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)
+        """))
         """))
 
 

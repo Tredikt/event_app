@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Response
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -60,6 +60,7 @@ async def list_events(
     is_free: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     is_tour: Optional[bool] = Query(None),
+    city: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
@@ -102,7 +103,15 @@ async def list_events(
     if catalog_mode:
         query = query.order_by(Event.created_at.desc()).offset(skip).limit(limit)
     else:
-        query = query.order_by(Event.date.asc()).offset(skip).limit(limit)
+        if city:
+            city_priority = case(
+                (Event.address.ilike(f"%{city}%"), 0),
+                else_=1,
+            )
+            query = query.order_by(city_priority, Event.date.asc())
+        else:
+            query = query.order_by(Event.date.asc())
+        query = query.offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()
 

@@ -11,7 +11,8 @@ export interface ChatMessage {
   id: number
   chat_id: number
   sender_id: number
-  text: string
+  text: string | null
+  image_url: string | null
   created_at: string
   is_read: boolean
   sender: ChatPartner | null
@@ -27,6 +28,8 @@ export interface ChatListItem {
 export const chatApi = {
   openChat: (user_id: number) =>
     api.post<{ chat_id: number; partner: ChatPartner }>('/chats/open', { user_id }),
+  canChat: (user_id: number) =>
+    api.get<{ allowed: boolean }>(`/chats/can-chat/${user_id}`),
   listChats: () => api.get<ChatListItem[]>('/chats'),
   getMessages: (chatId: number, skip = 0, limit = 50) =>
     api.get<ChatMessage[]>(`/chats/${chatId}/messages`, { params: { skip, limit } }),

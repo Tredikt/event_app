@@ -27,7 +27,7 @@ export default function HomePage() {
   const [search, setSearch] = useState('')
   const [onlyAvailable] = useState(false)
   const [isFree, setIsFree] = useState<boolean | null>(null)
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -42,6 +42,7 @@ export default function HomePage() {
         search: search || undefined,
         only_available: onlyAvailable,
         is_free: isFree ?? undefined,
+        city: user?.city ?? undefined,
       })
       setEvents(data)
     } catch {
@@ -49,7 +50,7 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory, search, onlyAvailable, isFree])
+  }, [selectedCategory, search, onlyAvailable, isFree, user?.city])
 
   const fetchOrganizers = useCallback(async () => {
     setLoading(true)
@@ -154,6 +155,25 @@ export default function HomePage() {
 
       {/* Category pills */}
       <div className="bg-white border-b border-gray-100">
+        {tab === 'events' && (
+          <div className="grid grid-cols-3 gap-2 px-4 pt-3 pb-1 max-w-2xl mx-auto">
+            {([null, true, false] as (boolean | null)[]).map((val) => {
+              const label = val === null ? 'Все' : val ? '🆓 Бесплатно' : '💰 Платные'
+              return (
+                <button
+                  key={String(val)}
+                  onClick={() => setIsFree(val)}
+                  className={clsx(
+                    'py-1.5 rounded-xl text-sm font-medium transition-all',
+                    isFree === val ? 'bg-blue-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 px-4 py-3 max-w-2xl mx-auto">
           <button
             onClick={() => setSelectedCategory(null)}
@@ -183,25 +203,6 @@ export default function HomePage() {
             </button>
           ))}
         </div>
-        {tab === 'events' && (
-          <div className="flex gap-2 px-4 pb-3 max-w-2xl mx-auto">
-            {([null, true, false] as (boolean | null)[]).map((val) => {
-              const label = val === null ? 'Все' : val ? '🆓 Бесплатно' : '💰 Платные'
-              return (
-                <button
-                  key={String(val)}
-                  onClick={() => setIsFree(val)}
-                  className={clsx(
-                    'px-3 py-1 rounded-full text-xs font-medium transition-all',
-                    isFree === val ? 'bg-blue-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  )}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-        )}
       </div>
 
       {/* Content */}

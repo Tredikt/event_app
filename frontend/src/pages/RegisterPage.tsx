@@ -1,10 +1,111 @@
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader, MapPin } from 'lucide-react'
+import { Loader, MapPin, Search, X } from 'lucide-react'
 import { useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { authApi, type RegisterData } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
+
+const RUSSIAN_CITIES = [
+  'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань',
+  'Нижний Новгород', 'Челябинск', 'Самара', 'Омск', 'Ростов-на-Дону',
+  'Уфа', 'Красноярск', 'Воронеж', 'Пермь', 'Волгоград', 'Краснодар',
+  'Саратов', 'Тюмень', 'Тольятти', 'Ижевск', 'Барнаул', 'Ульяновск',
+  'Иркутск', 'Хабаровск', 'Ярославль', 'Владивосток', 'Махачкала',
+  'Томск', 'Оренбург', 'Кемерово', 'Новокузнецк', 'Рязань', 'Астрахань',
+  'Набережные Челны', 'Пенза', 'Липецк', 'Киров', 'Тула', 'Чебоксары',
+  'Калининград', 'Брянск', 'Курск', 'Иваново', 'Магнитогорск', 'Тверь',
+  'Ставрополь', 'Белгород', 'Архангельск', 'Владимир', 'Сочи', 'Симферополь',
+  'Новочеркасск', 'Таганрог', 'Шахты', 'Батайск', 'Азов', 'Новошахтинск',
+]
+
+interface CityModalProps {
+  detectedCity: string | null
+  detecting: boolean
+  onConfirm: (city: string) => void
+  onSkip: () => void
+}
+
+function CityModal({ detectedCity, detecting, onConfirm, onSkip }: CityModalProps) {
+  const [search, setSearch] = useState('')
+  const [showList, setShowList] = useState(!detectedCity)
+
+  const filtered = RUSSIAN_CITIES.filter((c) =>
+    c.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">Ваш город</h2>
+          <button onClick={onSkip} className="text-gray-400 hover:text-gray-600">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {detecting ? (
+          <div className="p-8 flex flex-col items-center gap-3 text-gray-500">
+            <Loader className="w-6 h-6 animate-spin text-blue-600" />
+            <span className="text-sm">Определяем ваш город...</span>
+          </div>
+        ) : !showList && detectedCity ? (
+          <div className="p-5 space-y-4">
+            <p className="text-gray-600 text-sm">Определили ваш город:</p>
+            <div className="flex items-center gap-2 bg-blue-50 rounded-xl p-3">
+              <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+              <span className="font-medium text-blue-900">{detectedCity}</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onConfirm(detectedCity)}
+                className="btn-primary flex-1 text-sm py-2"
+              >
+                Да, верно
+              </button>
+              <button
+                onClick={() => setShowList(true)}
+                className="btn-secondary flex-1 text-sm py-2"
+              >
+                Нет, изменить
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                autoFocus
+                className="input pl-9"
+                placeholder="Поиск города..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {filtered.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">Город не найден</p>
+              )}
+              {filtered.map((city) => (
+                <button
+                  key={city}
+                  onClick={() => onConfirm(city)}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-sm text-gray-800 transition-colors"
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+            <button onClick={onSkip} className="w-full text-xs text-gray-400 hover:text-gray-600 pt-1">
+              Пропустить
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -15,17 +116,19 @@ export default function RegisterPage() {
   const [agreeError, setAgreeError] = useState(false)
   const [phoneDigits, setPhoneDigits] = useState('')
   const phoneRef = useRef<HTMLInputElement>(null)
+  const [cityModal, setCityModal] = useState<{ open: boolean; city: string | null; detecting: boolean }>({
+    open: false, city: null, detecting: false,
+  })
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
     setPhoneDigits(digits)
-    // Write +7XXXXXXXXXX into the form value
     const { onChange } = register('phone', { required: 'Обязательно' })
     const syntheticEvent = { target: { value: '+7' + digits } } as React.ChangeEvent<HTMLInputElement>
     onChange(syntheticEvent)
   }
 
-  const detectCity = async (): Promise<string | null> => {
+  const detectCity = (): Promise<string | null> => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) return resolve(null)
       navigator.geolocation.getCurrentPosition(
@@ -48,6 +151,20 @@ export default function RegisterPage() {
     })
   }
 
+  const handleCityConfirm = async (city: string) => {
+    setCityModal({ open: false, city: null, detecting: false })
+    try {
+      const { data: updated } = await authApi.updateMe({ city })
+      useAuthStore.getState().updateUser(updated)
+    } catch { /* ignore */ }
+    navigate('/telegram/connect')
+  }
+
+  const handleCitySkip = () => {
+    setCityModal({ open: false, city: null, detecting: false })
+    navigate('/telegram/connect')
+  }
+
   const onSubmit = async (data: RegisterData & { confirm_password: string }) => {
     if (!agreed) { setAgreeError(true); return }
     setAgreeError(false)
@@ -56,15 +173,11 @@ export default function RegisterPage() {
       const { data: token } = await authApi.register(registerData)
       setAuth(token.access_token, token.user)
       toast.success('Добро пожаловать!')
-      navigate('/telegram/connect')
-      // Fire & forget — don't block navigation
-      detectCity().then(async (city) => {
-        if (!city) return
-        try {
-          const { data: updated } = await authApi.updateMe({ city })
-          useAuthStore.getState().updateUser(updated)
-        } catch { /* ignore */ }
-      })
+
+      // Show modal with detecting state, then fill in city
+      setCityModal({ open: true, city: null, detecting: true })
+      const city = await detectCity()
+      setCityModal({ open: true, city, detecting: false })
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'Ошибка регистрации')
     }
@@ -72,6 +185,15 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4 py-8">
+      {cityModal.open && (
+        <CityModal
+          detectedCity={cityModal.city}
+          detecting={cityModal.detecting}
+          onConfirm={handleCityConfirm}
+          onSkip={handleCitySkip}
+        />
+      )}
+
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-700 rounded-2xl mb-4 shadow-lg">

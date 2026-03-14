@@ -745,7 +745,7 @@ export default function EventDetailPage() {
               </button>
             )}
 
-            {!isOrganizer && isAuthenticated && (
+            {!isOrganizer && isAuthenticated && joined && (
               <button
                 onClick={async () => {
                   try {

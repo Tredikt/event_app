@@ -44,7 +44,11 @@ async def list_organizers(
         ids = [u.id for u in users]
         cnt_result = await db.execute(
             select(Event.organizer_id, func.count(Event.id))
-            .where(Event.organizer_id.in_(ids))
+            .where(
+                Event.organizer_id.in_(ids),
+                Event.is_tour == False,  # noqa: E712
+                Event.status.in_([EventStatus.active, EventStatus.completed]),
+            )
             .group_by(Event.organizer_id)
         )
         counts = dict(cnt_result.all())
@@ -75,7 +79,13 @@ async def get_organizer_profile(
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
 
-    events_count = await db.scalar(select(func.count()).where(Event.organizer_id == user_id)) or 0
+    events_count = await db.scalar(
+        select(func.count()).where(
+            Event.organizer_id == user_id,
+            Event.is_tour == False,  # noqa: E712
+            Event.status.in_([EventStatus.active, EventStatus.completed]),
+        )
+    ) or 0
     # reviews_count = await db.scalar(select(func.count()).where(Review.organizer_id == user_id)) or 0  # RATING DISABLED
 
     return OrganizerProfile(

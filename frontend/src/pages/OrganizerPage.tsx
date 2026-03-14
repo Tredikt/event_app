@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, /* Star, */ CalendarDays, Award, MessageSquare } from 'lucide-react'
-import { chatApi } from '@/api/chat'
+import { ArrowLeft, MapPin, /* Star, */ CalendarDays, Award } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { usersApi, type OrganizerProfile /*, type ReviewOut, type EligibleEvent */ } from '@/api/users'  // RATING DISABLED
-import { useAuthStore } from '@/stores/authStore'
 import type { EventList } from '@/types'
 
 // RATING DISABLED — Stars and StarInput components commented out
@@ -44,7 +42,6 @@ import type { EventList } from '@/types'
 export default function OrganizerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user, isAuthenticated } = useAuthStore()
   const userId = Number(id)
 
   const [profile, setProfile] = useState<OrganizerProfile | null>(null)
@@ -56,16 +53,6 @@ export default function OrganizerPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<EventList[]>([])
   const [pastEvents, setPastEvents] = useState<EventList[]>([])
   const [eventsLoading, setEventsLoading] = useState(false)
-
-  const openChat = async () => {
-    try {
-      const { data } = await chatApi.openChat(userId)
-      navigate(`/chats/${data.chat_id}`)
-    } catch {
-      toast.error('Ошибка открытия чата')
-    }
-  }
-
   // RATING DISABLED — review form state commented out
   // const [showForm, setShowForm] = useState(false)
   // const [selectedEvent, setSelectedEvent] = useState<number>(0)
@@ -203,15 +190,6 @@ export default function OrganizerPage() {
           </span>
         </div>
 
-        {isAuthenticated && user?.id !== userId && (
-          <button
-            onClick={openChat}
-            className="mt-4 w-full btn-secondary text-sm flex items-center justify-center gap-2"
-          >
-            <MessageSquare className="w-4 h-4" />
-            Написать
-          </button>
-        )}
       </div>
 
       {/* Events section */}
