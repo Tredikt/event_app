@@ -199,7 +199,6 @@ async def migrate_schema():
             ALTER TABLE chat_messages
                 ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)
         """))
-        """))
 
 
 @asynccontextmanager
