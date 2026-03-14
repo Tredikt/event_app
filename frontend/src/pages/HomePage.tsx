@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Map, List, Search, Star } from 'lucide-react'
+import { Map, List, Search /*, Star */ } from 'lucide-react'  // RATING DISABLED
 import { eventsApi } from '@/api/events'
 import { usersApi, OrganizerProfile } from '@/api/users'
 import type { EventList, Category } from '@/types'
@@ -26,6 +26,7 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [onlyAvailable] = useState(false)
+  const [isFree, setIsFree] = useState<boolean | null>(null)
   const { isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
@@ -40,6 +41,7 @@ export default function HomePage() {
         category_id: selectedCategory ?? undefined,
         search: search || undefined,
         only_available: onlyAvailable,
+        is_free: isFree ?? undefined,
       })
       setEvents(data)
     } catch {
@@ -47,12 +49,15 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory, search, onlyAvailable])
+  }, [selectedCategory, search, onlyAvailable, isFree])
 
   const fetchOrganizers = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await usersApi.listOrganizers({ search: search || undefined })
+      const { data } = await usersApi.listOrganizers({
+        search: search || undefined,
+        category_id: selectedCategory ?? undefined,
+      })
       setOrganizers(data)
     } catch {
       toast.error('Не удалось загрузить организаторов')
@@ -147,40 +152,57 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Category pills — only for events tab */}
-      {tab === 'events' && (
-        <div className="bg-white border-b border-gray-100">
-          <div className="flex flex-wrap gap-2 px-4 py-3 max-w-2xl mx-auto">
+      {/* Category pills */}
+      <div className="bg-white border-b border-gray-100">
+        <div className="flex flex-wrap gap-2 px-4 py-3 max-w-2xl mx-auto">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+              selectedCategory === null
+                ? 'bg-blue-700 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            )}
+          >
+            <span className="text-base leading-none">🎯</span>
+            Все
+          </button>
+          {categories.map((cat) => (
             <button
-              onClick={() => setSelectedCategory(null)}
+              key={cat.id}
+              onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
               className={clsx(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                selectedCategory === null
+                selectedCategory === cat.id
                   ? 'bg-blue-700 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               )}
             >
-              <span className="text-base leading-none">🎯</span>
-              Все
+              <span className="text-base leading-none">{cat.icon}</span>
+              {cat.name}
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
-                className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                  selectedCategory === cat.id
-                    ? 'bg-blue-700 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                )}
-              >
-                <span className="text-base leading-none">{cat.icon}</span>
-                {cat.name}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
-      )}
+        {tab === 'events' && (
+          <div className="flex gap-2 px-4 pb-3 max-w-2xl mx-auto">
+            {([null, true, false] as (boolean | null)[]).map((val) => {
+              const label = val === null ? 'Все' : val ? '🆓 Бесплатно' : '💰 Платные'
+              return (
+                <button
+                  key={String(val)}
+                  onClick={() => setIsFree(val)}
+                  className={clsx(
+                    'px-3 py-1 rounded-full text-xs font-medium transition-all',
+                    isFree === val ? 'bg-blue-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Content */}
       <div className="p-3 max-w-2xl mx-auto w-full">
@@ -241,10 +263,11 @@ export default function HomePage() {
                     {org.city && <p className="text-xs text-gray-400 mt-0.5">{org.city}</p>}
                     <p className="text-xs text-gray-500 mt-0.5">{org.events_count} мероприятий</p>
                   </div>
-                  <div className="flex items-center gap-1 text-yellow-500 flex-shrink-0">
+                  {/* RATING DISABLED — star rating in organizer card commented out */}
+                  {/* <div className="flex items-center gap-1 text-yellow-500 flex-shrink-0">
                     <Star className="w-4 h-4 fill-current" />
                     <span className="text-sm font-medium text-gray-700">{org.rating.toFixed(1)}</span>
-                  </div>
+                  </div> */}
                 </Link>
               ))}
             </div>

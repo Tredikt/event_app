@@ -16,9 +16,10 @@ import EventDetailPage from '@/pages/EventDetailPage'
 const CreateEventPage     = lazy(() => import('@/pages/CreateEventPage'))
 const EditEventPage       = lazy(() => import('@/pages/EditEventPage'))
 const ProfilePage         = lazy(() => import('@/pages/ProfilePage'))
-const MyEventsPage        = lazy(() => import('@/pages/MyEventsPage'))
 const ConnectTelegramPage = lazy(() => import('@/pages/ConnectTelegramPage'))
 const OrganizerPage       = lazy(() => import('@/pages/OrganizerPage'))
+const ChatsPage           = lazy(() => import('@/pages/ChatsPage'))
+const ChatPage            = lazy(() => import('@/pages/ChatPage'))
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -67,9 +68,15 @@ export default function App() {
               <Suspense fallback={null}><ProfilePage /></Suspense>
             </PrivateRoute>
           } />
-          <Route path="/my-events" element={
+          <Route path="/my-events" element={<Navigate to="/profile" replace />} />
+          <Route path="/chats" element={
             <PrivateRoute>
-              <Suspense fallback={null}><MyEventsPage /></Suspense>
+              <Suspense fallback={null}><ChatsPage /></Suspense>
+            </PrivateRoute>
+          } />
+          <Route path="/chats/:chatId" element={
+            <PrivateRoute>
+              <Suspense fallback={null}><ChatPage /></Suspense>
             </PrivateRoute>
           } />
         </Route>

@@ -39,7 +39,7 @@ export interface EligibleEvent {
 }
 
 export const usersApi = {
-  listOrganizers: (params?: { search?: string; skip?: number; limit?: number }) =>
+  listOrganizers: (params?: { search?: string; category_id?: number; skip?: number; limit?: number }) =>
     api.get<OrganizerProfile[]>('/users', { params }),
   getProfile: (userId: number) => api.get<OrganizerProfile>(`/users/${userId}`),
   getReviews: (userId: number) => api.get<ReviewOut[]>(`/users/${userId}/reviews`),

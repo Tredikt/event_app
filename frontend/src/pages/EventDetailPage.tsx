@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2 } from 'lucide-react'
+import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare } from 'lucide-react'
+import { chatApi } from '@/api/chat'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import { eventsApi } from '@/api/events'
 import { notificationsApi } from '@/api/notifications'
-import type { AttendanceParticipant, Event, Participant, Review } from '@/types'
+import type { AttendanceParticipant, Event, Participant /*, Review */ } from '@/types'  // RATING DISABLED
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
@@ -33,13 +34,17 @@ export default function EventDetailPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [instantiateDate, setInstantiateDate] = useState('')
   const [instantiateLoading, setInstantiateLoading] = useState(false)
+  const [repeatModal, setRepeatModal] = useState(false)
+  const [repeatDate, setRepeatDate] = useState('')
+  const [repeatLoading, setRepeatLoading] = useState(false)
   const [carouselIndex, setCarouselIndex] = useState(0)
   const touchStartX = useRef<number | null>(null)
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [myReview, setMyReview] = useState<Review | null>(null)
-  const [reviewRating, setReviewRating] = useState(5)
-  const [reviewText, setReviewText] = useState('')
-  const [reviewLoading, setReviewLoading] = useState(false)
+  // RATING DISABLED — review state commented out
+  // const [reviews, setReviews] = useState<Review[]>([])
+  // const [myReview, setMyReview] = useState<Review | null>(null)
+  // const [reviewRating, setReviewRating] = useState(5)
+  // const [reviewText, setReviewText] = useState('')
+  // const [reviewLoading, setReviewLoading] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
   const [paymentModal, setPaymentModal] = useState(false)
 
@@ -52,15 +57,16 @@ export default function EventDetailPage() {
       toast.error('Мероприятие не найдено')
       navigate('/')
     })
-    eventsApi.getReviews(Number(id)).then((r) => setReviews(r.data)).catch(() => {})
+    // eventsApi.getReviews(Number(id)).then((r) => setReviews(r.data)).catch(() => {})  // RATING DISABLED
   }, [id, navigate])
 
-  useEffect(() => {
-    if (!user) return
-    const mine = reviews.find((r) => r.reviewer.id === user.id) || null
-    setMyReview(mine)
-    if (mine) { setReviewRating(mine.rating); setReviewText(mine.text || '') }
-  }, [reviews, user])
+  // RATING DISABLED — myReview sync effect commented out
+  // useEffect(() => {
+  //   if (!user) return
+  //   const mine = reviews.find((r) => r.reviewer.id === user.id) || null
+  //   setMyReview(mine)
+  //   if (mine) { setReviewRating(mine.rating); setReviewText(mine.text || '') }
+  // }, [reviews, user])
 
   useEffect(() => {
     if (!event || !isAuthenticated || !user) return
@@ -355,32 +361,34 @@ export default function EventDetailPage() {
     }
   }
 
-  const handleSubmitReview = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
-    setReviewLoading(true)
-    try {
-      const r = await eventsApi.createReview(Number(id), reviewRating, reviewText.trim() || undefined)
-      setReviews((prev) => [r.data, ...prev])
-      toast.success('Отзыв оставлен!')
-    } catch (e: any) {
-      toast.error(e.response?.data?.detail || 'Ошибка')
-    } finally {
-      setReviewLoading(false)
-    }
-  }
+  // RATING DISABLED — handleSubmitReview commented out
+  // const handleSubmitReview = async () => {
+  //   if (!isAuthenticated) { navigate('/login'); return }
+  //   setReviewLoading(true)
+  //   try {
+  //     const r = await eventsApi.createReview(Number(id), reviewRating, reviewText.trim() || undefined)
+  //     setReviews((prev) => [r.data, ...prev])
+  //     toast.success('Отзыв оставлен!')
+  //   } catch (e: any) {
+  //     toast.error(e.response?.data?.detail || 'Ошибка')
+  //   } finally {
+  //     setReviewLoading(false)
+  //   }
+  // }
 
-  const handleDeleteReview = async (reviewId: number) => {
-    try {
-      await eventsApi.deleteReview(Number(id), reviewId)
-      setReviews((prev) => prev.filter((r) => r.id !== reviewId))
-      setMyReview(null)
-      setReviewText('')
-      setReviewRating(5)
-      toast.success('Отзыв удалён')
-    } catch {
-      toast.error('Ошибка удаления')
-    }
-  }
+  // RATING DISABLED — handleDeleteReview commented out
+  // const handleDeleteReview = async (reviewId: number) => {
+  //   try {
+  //     await eventsApi.deleteReview(Number(id), reviewId)
+  //     setReviews((prev) => prev.filter((r) => r.id !== reviewId))
+  //     setMyReview(null)
+  //     setReviewText('')
+  //     setReviewRating(5)
+  //     toast.success('Отзыв удалён')
+  //   } catch {
+  //     toast.error('Ошибка удаления')
+  //   }
+  // }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -581,12 +589,10 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          {/* Reviews block */}
-          {!event.is_tour && (
+          {/* RATING DISABLED — Reviews block commented out */}
+          {/* {!event.is_tour && (
             <div className="card p-5">
               <h3 className="text-lg font-bold text-gray-900 mb-4">Отзывы ({reviews.length})</h3>
-
-              {/* Write review form — past event, not organizer, participated */}
               {isAuthenticated && !isOrganizer && isPast && joined && !myReview && (
                 <div className="mb-5 pb-5 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-700 mb-2">Оставить отзыв</p>
@@ -616,8 +622,6 @@ export default function EventDetailPage() {
                   </button>
                 </div>
               )}
-
-              {/* Reviews list */}
               {reviews.length === 0 ? (
                 <p className="text-sm text-gray-400 text-center py-4">Отзывов пока нет</p>
               ) : (
@@ -655,7 +659,7 @@ export default function EventDetailPage() {
                 </div>
               )}
             </div>
-          )}
+          )} */}
 
           {(event.latitude && event.longitude) && (
             <div className="card overflow-hidden">
@@ -704,12 +708,13 @@ export default function EventDetailPage() {
                 <Link to={`/users/${event.organizer.id}`} className="font-medium text-sm hover:text-blue-700 transition-colors">
                   {event.organizer.first_name} {event.organizer.last_name}
                 </Link>
-                <div className="flex items-center gap-1">
+                {/* RATING DISABLED — organizer rating stars commented out */}
+                {/* <div className="flex items-center gap-1">
                   {[1,2,3,4,5].map(i => (
                     <span key={i} className={`text-xs ${i <= Math.round(event.organizer.rating) ? 'text-yellow-400' : 'text-gray-300'}`}>★</span>
                   ))}
                   <span className="text-xs text-gray-500">{event.organizer.rating.toFixed(1)}</span>
-                </div>
+                </div> */}
                 {event.organizer.telegram_username && (
                   <a
                     href={`https://t.me/${event.organizer.telegram_username}`}
@@ -737,6 +742,23 @@ export default function EventDetailPage() {
                 {following
                   ? <><UserMinus className="w-4 h-4" />Отписаться от организатора</>
                   : <><UserPlus className="w-4 h-4" />Следить за организатором</>}
+              </button>
+            )}
+
+            {!isOrganizer && isAuthenticated && (
+              <button
+                onClick={async () => {
+                  try {
+                    const { data } = await chatApi.openChat(event.organizer.id)
+                    navigate(`/chats/${data.chat_id}`)
+                  } catch {
+                    toast.error('Ошибка открытия чата')
+                  }
+                }}
+                className="w-full btn btn-secondary text-sm flex items-center justify-center gap-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Написать организатору
               </button>
             )}
 
@@ -810,6 +832,15 @@ export default function EventDetailPage() {
                           </a>
                         )}
                       </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-gray-400">
+                          📅 записей: <span className="font-semibold text-gray-600">{p.total_registrations}</span>
+                        </span>
+                        <span className="text-xs text-gray-300">·</span>
+                        <span className="text-xs text-gray-400">
+                          ✅ посещений: <span className={clsx('font-semibold', p.total_attended > 0 ? 'text-green-600' : 'text-gray-500')}>{p.total_attended}</span>
+                        </span>
+                      </div>
                       {/* Payment status badge */}
                       {p.status === 'pending_payment' && (
                         <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
@@ -855,7 +886,9 @@ export default function EventDetailPage() {
                 <ClipboardList className="w-4 h-4 text-blue-700" />
                 <h3 className="font-semibold text-gray-900">Отметить посещаемость</h3>
               </div>
-              <p className="text-xs text-gray-400 mb-3">Отметьте, кто пришёл. Рейтинг не пришедших снизится на 0.1</p>
+              {/* RATING DISABLED — note about rating penalty removed */}
+              {/* <p className="text-xs text-gray-400 mb-3">Отметьте, кто пришёл. Рейтинг не пришедших снизится на 0.1</p> */}
+              <p className="text-xs text-gray-400 mb-3">Отметьте, кто пришёл.</p>
               <div className="space-y-2">
                 {attendance.map((a) => (
                   <div
@@ -880,7 +913,8 @@ export default function EventDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{a.user.first_name} {a.user.last_name}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</span>
+                        {/* RATING DISABLED — user rating in attendance list commented out */}
+                        {/* <span className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</span> */}
                         {a.user.telegram_username && (
                           <a
                             href={`https://t.me/${a.user.telegram_username}`}
@@ -912,8 +946,65 @@ export default function EventDetailPage() {
               </button>
             </div>
           )}
+
+          {/* Repeat event button — for organizer on past events */}
+          {isOrganizer && isPast && !event.is_tour && (
+            <div className="card p-4">
+              <button
+                onClick={() => setRepeatModal(true)}
+                className="w-full btn-secondary text-sm flex items-center justify-center gap-2"
+              >
+                🔁 Повторить мероприятие
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Repeat modal */}
+      {repeatModal && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRepeatModal(false)} />
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Повторить мероприятие</h3>
+              <button onClick={() => setRepeatModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Будет создана копия «{event.title}» с новой датой. Все остальные данные сохранятся.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Новая дата и время</label>
+            <input
+              type="datetime-local"
+              value={repeatDate}
+              onChange={(e) => setRepeatDate(e.target.value)}
+              className="input w-full mb-4"
+            />
+            <button
+              disabled={!repeatDate || repeatLoading}
+              onClick={async () => {
+                if (!repeatDate) return
+                setRepeatLoading(true)
+                try {
+                  const { data } = await eventsApi.repeat(event.id, new Date(repeatDate).toISOString())
+                  setRepeatModal(false)
+                  navigate(`/events/${data.id}`)
+                  toast.success('Мероприятие создано')
+                } catch {
+                  toast.error('Ошибка создания')
+                } finally {
+                  setRepeatLoading(false)
+                }
+              }}
+              className="w-full btn-primary text-sm disabled:opacity-50"
+            >
+              {repeatLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Создать'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Payment modal */}
       {paymentModal && event.price != null && event.price > 0 && (

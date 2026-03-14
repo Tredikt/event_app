@@ -6,6 +6,7 @@ export interface EventFilters {
   date_from?: string
   date_to?: string
   only_available?: boolean
+  is_free?: boolean
   search?: string
   is_tour?: boolean
   skip?: number
@@ -61,6 +62,9 @@ export const eventsApi = {
 
   instantiate: (id: number, date: string) =>
     api.post<Event>(`/events/${id}/instantiate`, { date }),
+
+  repeat: (id: number, date: string) =>
+    api.post<Event>(`/events/${id}/repeat`, { date }),
 
   getParticipants: (id: number) => api.get<Participant[]>(`/events/${id}/participants`),
 

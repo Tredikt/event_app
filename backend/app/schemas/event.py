@@ -131,11 +131,18 @@ class ParticipantOut(BaseModel):
     status: ParticipantStatus
     payment_status: Optional[str] = None
     joined_at: datetime
+    total_registrations: int = 0
+    total_attended: int = 0
 
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_participant(cls, p: object) -> "ParticipantOut":
+    def from_participant(
+        cls,
+        p: object,
+        total_registrations: int = 0,
+        total_attended: int = 0,
+    ) -> "ParticipantOut":
         status = p.status  # type: ignore[attr-defined]
         return cls(
             id=p.id,  # type: ignore[attr-defined]
@@ -143,6 +150,8 @@ class ParticipantOut(BaseModel):
             status=status,
             payment_status=status.value,
             joined_at=p.joined_at,  # type: ignore[attr-defined]
+            total_registrations=total_registrations,
+            total_attended=total_attended,
         )
 
 

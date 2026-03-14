@@ -84,6 +84,8 @@ export interface Participant {
   status: ParticipantStatus
   payment_status: string | null
   joined_at: string
+  total_registrations: number
+  total_attended: number
 }
 
 export interface AttendanceParticipant {

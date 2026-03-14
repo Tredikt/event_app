@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Home, Newspaper, Plus, Calendar, User } from 'lucide-react'
+import { Home, Newspaper, Plus, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/api/auth'
 import clsx from 'clsx'
@@ -60,16 +60,17 @@ export default function Layout() {
           </div>
 
           <NavLink
-            to="/my-events"
+            to="/chats"
             className={({ isActive }) =>
-              clsx('flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors',
+              clsx('flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-medium transition-colors relative',
                 isAuthenticated
                   ? (isActive ? 'text-blue-700' : 'text-gray-400')
                   : 'text-gray-200 pointer-events-none')
             }
+            onClick={(e) => { if (!isAuthenticated) { e.preventDefault(); navigate('/login') } }}
           >
-            <Calendar className="w-5 h-5" />
-            <span>Мои</span>
+            <MessageSquare className="w-5 h-5" />
+            <span>Чаты</span>
           </NavLink>
 
           <NavLink

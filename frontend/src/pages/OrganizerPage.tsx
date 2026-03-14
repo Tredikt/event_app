@@ -1,43 +1,45 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Star, CalendarDays, Award } from 'lucide-react'
+import { ArrowLeft, MapPin, /* Star, */ CalendarDays, Award, MessageSquare } from 'lucide-react'
+import { chatApi } from '@/api/chat'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import { usersApi, type OrganizerProfile, type ReviewOut, type EligibleEvent } from '@/api/users'
+import { usersApi, type OrganizerProfile /*, type ReviewOut, type EligibleEvent */ } from '@/api/users'  // RATING DISABLED
 import { useAuthStore } from '@/stores/authStore'
 import type { EventList } from '@/types'
 
-function Stars({ value, size = 'sm' }: { value: number; size?: 'sm' | 'lg' }) {
-  const sz = size === 'lg' ? 'text-2xl' : 'text-sm'
-  return (
-    <span className={sz}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={i <= Math.round(value) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-      ))}
-    </span>
-  )
-}
-
-function StarInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [hover, setHover] = useState(0)
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => onChange(i)}
-          onMouseEnter={() => setHover(i)}
-          onMouseLeave={() => setHover(0)}
-          className="text-2xl leading-none transition-transform hover:scale-110"
-        >
-          <span className={(hover || value) >= i ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-        </button>
-      ))}
-    </div>
-  )
-}
+// RATING DISABLED — Stars and StarInput components commented out
+// function Stars({ value, size = 'sm' }: { value: number; size?: 'sm' | 'lg' }) {
+//   const sz = size === 'lg' ? 'text-2xl' : 'text-sm'
+//   return (
+//     <span className={sz}>
+//       {[1, 2, 3, 4, 5].map((i) => (
+//         <span key={i} className={i <= Math.round(value) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
+//       ))}
+//     </span>
+//   )
+// }
+//
+// function StarInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+//   const [hover, setHover] = useState(0)
+//   return (
+//     <div className="flex gap-1">
+//       {[1, 2, 3, 4, 5].map((i) => (
+//         <button
+//           key={i}
+//           type="button"
+//           onClick={() => onChange(i)}
+//           onMouseEnter={() => setHover(i)}
+//           onMouseLeave={() => setHover(0)}
+//           className="text-2xl leading-none transition-transform hover:scale-110"
+//         >
+//           <span className={(hover || value) >= i ? 'text-yellow-400' : 'text-gray-300'}>★</span>
+//         </button>
+//       ))}
+//     </div>
+//   )
+// }
 
 export default function OrganizerPage() {
   const { id } = useParams<{ id: string }>()
@@ -46,8 +48,8 @@ export default function OrganizerPage() {
   const userId = Number(id)
 
   const [profile, setProfile] = useState<OrganizerProfile | null>(null)
-  const [reviews, setReviews] = useState<ReviewOut[]>([])
-  const [eligibleEvents, setEligibleEvents] = useState<EligibleEvent[]>([])
+  // const [reviews, setReviews] = useState<ReviewOut[]>([])  // RATING DISABLED
+  // const [eligibleEvents, setEligibleEvents] = useState<EligibleEvent[]>([])  // RATING DISABLED
   const [loading, setLoading] = useState(true)
 
   const [eventsTab, setEventsTab] = useState<'upcoming' | 'past'>('upcoming')
@@ -55,20 +57,30 @@ export default function OrganizerPage() {
   const [pastEvents, setPastEvents] = useState<EventList[]>([])
   const [eventsLoading, setEventsLoading] = useState(false)
 
-  const [showForm, setShowForm] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<number>(0)
-  const [rating, setRating] = useState(5)
-  const [reviewText, setReviewText] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const openChat = async () => {
+    try {
+      const { data } = await chatApi.openChat(userId)
+      navigate(`/chats/${data.chat_id}`)
+    } catch {
+      toast.error('Ошибка открытия чата')
+    }
+  }
+
+  // RATING DISABLED — review form state commented out
+  // const [showForm, setShowForm] = useState(false)
+  // const [selectedEvent, setSelectedEvent] = useState<number>(0)
+  // const [rating, setRating] = useState(5)
+  // const [reviewText, setReviewText] = useState('')
+  // const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!userId) return
     Promise.all([
       usersApi.getProfile(userId),
-      usersApi.getReviews(userId),
-    ]).then(([p, r]) => {
+      // usersApi.getReviews(userId),  // RATING DISABLED
+    ]).then(([p /*, r */]) => {
       setProfile(p.data)
-      setReviews(r.data)
+      // setReviews(r.data)  // RATING DISABLED
     }).catch(() => {
       toast.error('Пользователь не найден')
       navigate('/')
@@ -87,43 +99,45 @@ export default function OrganizerPage() {
     }).catch(() => {}).finally(() => setEventsLoading(false))
   }, [userId])
 
-  useEffect(() => {
-    if (!isAuthenticated || !userId || user?.id === userId) return
-    usersApi.getEligibleEvents(userId)
-      .then((r) => {
-        setEligibleEvents(r.data)
-        if (r.data.length === 1) setSelectedEvent(r.data[0].id)
-      })
-      .catch(() => {})
-  }, [isAuthenticated, userId, user])
+  // RATING DISABLED — eligible events fetch commented out
+  // useEffect(() => {
+  //   if (!isAuthenticated || !userId || user?.id === userId) return
+  //   usersApi.getEligibleEvents(userId)
+  //     .then((r) => {
+  //       setEligibleEvents(r.data)
+  //       if (r.data.length === 1) setSelectedEvent(r.data[0].id)
+  //     })
+  //     .catch(() => {})
+  // }, [isAuthenticated, userId, user])
 
-  const handleSubmitReview = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedEvent) { toast.error('Выберите мероприятие'); return }
-    if (!rating) { toast.error('Поставьте оценку'); return }
-    setSubmitting(true)
-    try {
-      const { data: review } = await usersApi.createReview(userId, {
-        event_id: selectedEvent,
-        rating,
-        text: reviewText.trim() || undefined,
-      })
-      setReviews((prev) => [review, ...prev])
-      setProfile((p) => p ? { ...p, reviews_count: p.reviews_count + 1, rating: recalcRating([review, ...reviews]) } : p)
-      setEligibleEvents((prev) => prev.filter((e) => e.id !== selectedEvent))
-      setShowForm(false)
-      setReviewText('')
-      setRating(5)
-      toast.success('Отзыв опубликован!')
-    } catch (e: any) {
-      toast.error(e.response?.data?.detail || 'Ошибка')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const recalcRating = (revs: ReviewOut[]) =>
-    revs.length ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 100) / 100 : 5
+  // RATING DISABLED — handleSubmitReview and recalcRating commented out
+  // const handleSubmitReview = async (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   if (!selectedEvent) { toast.error('Выберите мероприятие'); return }
+  //   if (!rating) { toast.error('Поставьте оценку'); return }
+  //   setSubmitting(true)
+  //   try {
+  //     const { data: review } = await usersApi.createReview(userId, {
+  //       event_id: selectedEvent,
+  //       rating,
+  //       text: reviewText.trim() || undefined,
+  //     })
+  //     setReviews((prev) => [review, ...prev])
+  //     setProfile((p) => p ? { ...p, reviews_count: p.reviews_count + 1, rating: recalcRating([review, ...reviews]) } : p)
+  //     setEligibleEvents((prev) => prev.filter((e) => e.id !== selectedEvent))
+  //     setShowForm(false)
+  //     setReviewText('')
+  //     setRating(5)
+  //     toast.success('Отзыв опубликован!')
+  //   } catch (e: any) {
+  //     toast.error(e.response?.data?.detail || 'Ошибка')
+  //   } finally {
+  //     setSubmitting(false)
+  //   }
+  // }
+  //
+  // const recalcRating = (revs: ReviewOut[]) =>
+  //   revs.length ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 100) / 100 : 5
 
   if (loading || !profile) {
     return (
@@ -134,7 +148,7 @@ export default function OrganizerPage() {
     )
   }
 
-  const canReview = isAuthenticated && user?.id !== userId && eligibleEvents.length > 0
+  // const canReview = isAuthenticated && user?.id !== userId && eligibleEvents.length > 0  // RATING DISABLED
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
@@ -158,10 +172,11 @@ export default function OrganizerPage() {
               <a href={`https://t.me/${profile.telegram_username}`} target="_blank" rel="noreferrer"
                 className="text-sm text-blue-700 hover:underline">@{profile.telegram_username}</a>
             )}
-            <div className="flex items-center gap-1.5 mt-1">
+            {/* RATING DISABLED — Stars rating display commented out */}
+            {/* <div className="flex items-center gap-1.5 mt-1">
               <Stars value={profile.rating} />
               <span className="text-sm font-semibold text-gray-700">{profile.rating.toFixed(1)}</span>
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -187,6 +202,16 @@ export default function OrganizerPage() {
             На сайте с {format(new Date(profile.created_at), 'MMMM yyyy', { locale: ru })}
           </span>
         </div>
+
+        {isAuthenticated && user?.id !== userId && (
+          <button
+            onClick={openChat}
+            className="mt-4 w-full btn-secondary text-sm flex items-center justify-center gap-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Написать
+          </button>
+        )}
       </div>
 
       {/* Events section */}
@@ -244,8 +269,8 @@ export default function OrganizerPage() {
         )}
       </div>
 
-      {/* Review form */}
-      {canReview && !showForm && (
+      {/* RATING DISABLED — Review form commented out */}
+      {/* {canReview && !showForm && (
         <button onClick={() => setShowForm(true)} className="w-full btn-primary text-sm">
           <Star className="w-4 h-4" />Оставить отзыв
         </button>
@@ -293,10 +318,10 @@ export default function OrganizerPage() {
             </div>
           </form>
         </div>
-      )}
+      )} */}
 
-      {/* Reviews list */}
-      <div className="space-y-3">
+      {/* RATING DISABLED — Reviews list commented out */}
+      {/* <div className="space-y-3">
         <h2 className="font-semibold text-gray-900 text-sm px-1">Отзывы ({reviews.length})</h2>
         {reviews.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-sm p-6 text-center text-gray-400 text-sm">
@@ -325,7 +350,7 @@ export default function OrganizerPage() {
             </div>
           ))
         )}
-      </div>
+      </div> */}
     </div>
   )
 }

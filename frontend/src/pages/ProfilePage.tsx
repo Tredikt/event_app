@@ -1,13 +1,18 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, Trophy, X } from 'lucide-react'
+import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, /* Trophy, X, */ Users, Calendar } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '@/api/auth'
+import { eventsApi } from '@/api/events'
 import { useAuthStore } from '@/stores/authStore'
 import { useNavigate } from 'react-router-dom'
-import type { UserProfile } from '@/types'
+import type { UserProfile, EventList } from '@/types'
 import NotificationSettingsPanel from '@/components/notifications/NotificationSettings'
 import AvatarCropModal from '@/components/ui/AvatarCropModal'
+import EventCard from '@/components/events/EventCard'
+
+type MyTab = 'joined' | 'organized'
 
 export default function ProfilePage() {
   const { user, updateUser, logout } = useAuthStore()
@@ -15,9 +20,20 @@ export default function ProfilePage() {
   const [telegramLink, setTelegramLink] = useState('')
   const [loadingTg, setLoadingTg] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showRating, setShowRating] = useState(false)
+  // const [showRating, setShowRating] = useState(false)  // RATING DISABLED
   const [cropSrc, setCropSrc] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [myTab, setMyTab] = useState<MyTab>('joined')
+  const [organized, setOrganized] = useState<EventList[]>([])
+  const [joined, setJoined] = useState<EventList[]>([])
+  const [eventsLoading, setEventsLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([eventsApi.myOrganized(), eventsApi.myJoined()])
+      .then(([org, j]) => { setOrganized(org.data); setJoined(j.data) })
+      .catch(() => toast.error('Ошибка загрузки событий'))
+      .finally(() => setEventsLoading(false))
+  }, [])
 
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<Partial<UserProfile>>({
     defaultValues: {
@@ -76,9 +92,10 @@ export default function ProfilePage() {
 
   if (!user) return null
 
-  const rating = user.rating ?? 5.0
-  const ratingColor = rating >= 4.5 ? '#10B981' : rating >= 3.5 ? '#F59E0B' : '#EF4444'
-  const filledStars = Math.round(rating / 5 * 5)
+  // RATING DISABLED
+  // const rating = user.rating ?? 5.0
+  // const ratingColor = rating >= 4.5 ? '#10B981' : rating >= 3.5 ? '#F59E0B' : '#EF4444'
+  // const filledStars = Math.round(rating / 5 * 5)
 
   return (
     <>
@@ -159,8 +176,8 @@ export default function ProfilePage() {
       {/* Menu list */}
       <div className="card overflow-hidden divide-y divide-gray-100">
 
-        {/* Rating */}
-        <button
+        {/* RATING DISABLED — Мой рейтинг button commented out */}
+        {/* <button
           onClick={() => setShowRating(true)}
           className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
         >
@@ -168,7 +185,7 @@ export default function ProfilePage() {
           <span className="flex-1 text-sm font-medium text-gray-800">Мой рейтинг</span>
           <span className="text-sm font-bold mr-2 tabular-nums" style={{ color: ratingColor }}>{rating.toFixed(1)}</span>
           <ChevronRight className="w-4 h-4 text-gray-400" />
-        </button>
+        </button> */}
 
         {/* Notifications */}
         <button
@@ -195,8 +212,49 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* Rating modal */}
-      {showRating && (
+      {/* My Events */}
+      <div className="pt-2">
+        <h2 className="text-lg font-bold text-gray-900 mb-3">Мои события</h2>
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
+          <button
+            onClick={() => setMyTab('joined')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'joined' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            <Users className="w-4 h-4 inline mr-1.5" />
+            Записан ({joined.length})
+          </button>
+          <button
+            onClick={() => setMyTab('organized')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'organized' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            <Calendar className="w-4 h-4 inline mr-1.5" />
+            Организую ({organized.length})
+          </button>
+        </div>
+        {eventsLoading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-48 animate-pulse bg-gray-100" />)}
+          </div>
+        ) : (myTab === 'joined' ? joined : organized).length === 0 ? (
+          <div className="text-center py-10 text-gray-400">
+            <div className="text-4xl mb-2">{myTab === 'organized' ? '📋' : '🎯'}</div>
+            <p className="text-sm text-gray-500">
+              {myTab === 'organized'
+                ? <Link to="/events/new" className="text-blue-700 hover:underline">Создайте первое мероприятие</Link>
+                : <Link to="/" className="text-blue-700 hover:underline">Найдите что-нибудь интересное</Link>}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {(myTab === 'joined' ? joined : organized).map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* RATING DISABLED — Rating modal commented out */}
+      {/* {showRating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowRating(false)} />
           <div
@@ -213,14 +271,11 @@ export default function ProfilePage() {
             </div>
 
             <div className="px-5 pb-6 space-y-5">
-              {/* Big rating number */}
               <div className="rounded-2xl p-8 text-center" style={{ backgroundColor: `${ratingColor}12` }}>
                 <p className="text-7xl font-black tabular-nums" style={{ color: ratingColor }}>
                   {rating.toFixed(1)}
                 </p>
                 <p className="text-gray-400 text-sm mt-1">из 5.0</p>
-
-                {/* Star bar */}
                 <div className="flex justify-center gap-1 mt-4">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <span key={i} className="text-2xl" style={{ filter: i < filledStars ? 'none' : 'grayscale(1) opacity(0.3)' }}>
@@ -228,8 +283,6 @@ export default function ProfilePage() {
                     </span>
                   ))}
                 </div>
-
-                {/* Rating bar */}
                 <div className="mt-4 h-2 bg-white/60 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
@@ -237,8 +290,6 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
-
-              {/* Explanation */}
               <div className="space-y-2">
                 <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
                   <span className="text-xl flex-shrink-0 mt-0.5">⭐</span>
@@ -260,7 +311,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
     </div>
 

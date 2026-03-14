@@ -57,6 +57,7 @@ async def list_events(
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
     only_available: bool = Query(False),
+    is_free: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     is_tour: Optional[bool] = Query(None),
     skip: int = Query(0, ge=0),
@@ -83,6 +84,10 @@ async def list_events(
         query = query.where(Event.date <= date_to)
     if only_available:
         query = query.where(Event.participants_count < Event.capacity)
+    if is_free is True:
+        query = query.where(or_(Event.price.is_(None), Event.price == 0))
+    elif is_free is False:
+        query = query.where(Event.price > 0)
     if search:
         query = query.where(
             or_(
@@ -188,6 +193,62 @@ async def instantiate_catalog_event(
         longitude=source.longitude,
         category_id=source.category_id,
         image_url=source.image_url,
+        is_tour=False,
+        organizer_id=current_user.id,
+    )
+    db.add(new_event)
+    await db.commit()
+    await db.refresh(new_event)
+
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == new_event.id)
+    )
+    return result.scalar_one()
+
+
+@router.post("/{event_id}/repeat", response_model=EventOut, status_code=status.HTTP_201_CREATED)
+async def repeat_event(
+    event_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a copy of a past event with a new date."""
+    result = await db.execute(
+        select(Event)
+        .options(selectinload(Event.category), selectinload(Event.organizer), selectinload(Event.images))
+        .where(Event.id == event_id)
+    )
+    source = result.scalar_one_or_none()
+    if not source:
+        raise HTTPException(status_code=404, detail="Мероприятие не найдено")
+    if source.organizer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав")
+
+    date_str = body.get("date")
+    if not date_str:
+        raise HTTPException(status_code=422, detail="Укажите дату")
+    try:
+        from datetime import datetime as dt
+        event_date = dt.fromisoformat(date_str.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Неверный формат даты")
+
+    new_event = Event(
+        title=source.title,
+        description=source.description,
+        date=event_date,
+        capacity=source.capacity,
+        min_participants=source.min_participants,
+        address=source.address,
+        latitude=source.latitude,
+        longitude=source.longitude,
+        category_id=source.category_id,
+        image_url=source.image_url,
+        price=source.price,
+        payment_details=source.payment_details,
         is_tour=False,
         organizer_id=current_user.id,
     )
@@ -718,7 +779,47 @@ async def get_participants(
         .order_by(EventParticipant.joined_at.asc())
     )
     participants = result.scalars().all()
-    return [ParticipantOut.from_participant(p) for p in participants]
+
+    # Collect user ids to query their stats across this organizer's events
+    user_ids = [p.user_id for p in participants]
+    organizer_event_ids_q = select(Event.id).where(Event.organizer_id == event.organizer_id)
+
+    # total registrations per user (any non-cancelled status)
+    reg_result = await db.execute(
+        select(EventParticipant.user_id, func.count().label("cnt"))
+        .where(
+            and_(
+                EventParticipant.user_id.in_(user_ids),
+                EventParticipant.event_id.in_(organizer_event_ids_q),
+                EventParticipant.status != ParticipantStatus.cancelled,
+            )
+        )
+        .group_by(EventParticipant.user_id)
+    )
+    reg_counts = {row.user_id: row.cnt for row in reg_result}
+
+    # total attended per user (EventAttendance with attended=True)
+    att_result = await db.execute(
+        select(EventAttendance.user_id, func.count().label("cnt"))
+        .where(
+            and_(
+                EventAttendance.user_id.in_(user_ids),
+                EventAttendance.event_id.in_(organizer_event_ids_q),
+                EventAttendance.attended == True,  # noqa: E712
+            )
+        )
+        .group_by(EventAttendance.user_id)
+    )
+    att_counts = {row.user_id: row.cnt for row in att_result}
+
+    return [
+        ParticipantOut.from_participant(
+            p,
+            total_registrations=reg_counts.get(p.user_id, 0),
+            total_attended=att_counts.get(p.user_id, 0),
+        )
+        for p in participants
+    ]
 
 
 @router.post("/{event_id}/subscribe", response_model=SubscriptionOut)
@@ -928,7 +1029,7 @@ async def mark_attendance(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Organizer submits attendance; no-shows get rating -0.1."""
+    """Organizer submits attendance."""  # RATING DISABLED — removed 'no-shows get rating -0.1'
     event = await db.get(Event, event_id)
     if not event:
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
@@ -954,21 +1055,23 @@ async def mark_attendance(
                 marked_at=datetime.utcnow(),
             )
             db.add(record)
-            if not item.attended:
-                user = await db.get(User, item.user_id)
-                if user:
-                    user.rating = max(1.0, round(user.rating - 0.1, 2))
+            # RATING DISABLED — no-show rating penalty commented out
+            # if not item.attended:
+            #     user = await db.get(User, item.user_id)
+            #     if user:
+            #         user.rating = max(1.0, round(user.rating - 0.1, 2))
         else:
-            # Update — revert previous rating change if status flipped
-            if prev.attended != item.attended:
-                user = await db.get(User, item.user_id)
-                if user:
-                    if not item.attended and prev.attended:
-                        # was present, now absent → penalise
-                        user.rating = max(1.0, round(user.rating - 0.1, 2))
-                    elif item.attended and not prev.attended:
-                        # was absent, now present → restore
-                        user.rating = min(10.0, round(user.rating + 0.1, 2))
+            # Update — rating change on status flip commented out
+            # RATING DISABLED
+            # if prev.attended != item.attended:
+            #     user = await db.get(User, item.user_id)
+            #     if user:
+            #         if not item.attended and prev.attended:
+            #             # was present, now absent → penalise
+            #             user.rating = max(1.0, round(user.rating - 0.1, 2))
+            #         elif item.attended and not prev.attended:
+            #             # was absent, now present → restore
+            #             user.rating = min(10.0, round(user.rating + 0.1, 2))
             prev.attended = item.attended
             prev.marked_at = datetime.utcnow()
 

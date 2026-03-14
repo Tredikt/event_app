@@ -15,6 +15,8 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.models import (  # noqa: F401 — register all models with Base.metadata
     CategorySubscription,
+    Chat,
+    ChatMessage,
     Event,
     EventAttendance,
     EventCategory,
@@ -26,9 +28,10 @@ from app.models import (  # noqa: F401 — register all models with Base.metadat
     User,
     NewsPost,
     NewsPostImage,
-    Review,
+    # Review,  # RATING DISABLED
 )
-from app.routers import auth, events, notifications, telegram, news, users, reviews
+from app.routers import auth, events, notifications, telegram, news, users  # , reviews  # RATING DISABLED
+from app.routers import chat as chat_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -139,18 +142,19 @@ async def migrate_schema():
         await conn.execute(text(
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS min_participants INTEGER"
         ))
-        await conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS reviews (
-                id SERIAL PRIMARY KEY,
-                reviewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                organizer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-                text TEXT,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                UNIQUE(reviewer_id, event_id)
-            )
-        """))
+        # RATING DISABLED — reviews table migration commented out
+        # await conn.execute(text("""
+        #     CREATE TABLE IF NOT EXISTS reviews (
+        #         id SERIAL PRIMARY KEY,
+        #         reviewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        #         organizer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        #         event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        #         rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        #         text TEXT,
+        #         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        #         UNIQUE(reviewer_id, event_id)
+        #     )
+        # """))
         await conn.execute(text(
             "ALTER TABLE events ADD COLUMN IF NOT EXISTS price FLOAT"
         ))
@@ -167,6 +171,25 @@ async def migrate_schema():
         await conn.execute(text(
             "ALTER TYPE participantstatus ADD VALUE IF NOT EXISTS 'payment_submitted'"
         ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS chats (
+                id SERIAL PRIMARY KEY,
+                user1_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user2_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                last_message_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS chat_messages (
+                id SERIAL PRIMARY KEY,
+                chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+                sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                is_read BOOLEAN NOT NULL DEFAULT FALSE
+            )
+        """))
 
 
 @asynccontextmanager
@@ -220,7 +243,8 @@ app.include_router(notifications.router)
 app.include_router(telegram.router)
 app.include_router(news.router)
 app.include_router(users.router)
-app.include_router(reviews.router)
+# app.include_router(reviews.router)  # RATING DISABLED
+app.include_router(chat_router.router)
 
 
 @app.get("/health")
