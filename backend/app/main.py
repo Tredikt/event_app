@@ -151,6 +151,22 @@ async def migrate_schema():
                 UNIQUE(reviewer_id, event_id)
             )
         """))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS price FLOAT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS payment_details TEXT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE event_subscriptions ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        # Add new ParticipantStatus enum values if missing
+        await conn.execute(text(
+            "ALTER TYPE participantstatus ADD VALUE IF NOT EXISTS 'pending_payment'"
+        ))
+        await conn.execute(text(
+            "ALTER TYPE participantstatus ADD VALUE IF NOT EXISTS 'payment_submitted'"
+        ))
 
 
 @asynccontextmanager

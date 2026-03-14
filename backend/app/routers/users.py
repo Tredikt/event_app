@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
@@ -16,6 +16,53 @@ from app.schemas.review import OrganizerProfile, ReviewCreate, ReviewOut
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("", response_model=list[OrganizerProfile])
+async def list_organizers(
+    search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return users who have at least one event, sorted by rating desc."""
+    q = (
+        select(User)
+        .where(User.id.in_(select(Event.organizer_id).distinct()))
+    )
+    if search:
+        q = q.where(
+            (User.first_name + " " + User.last_name).ilike(f"%{search}%")
+        )
+    q = q.order_by(User.rating.desc()).offset(skip).limit(limit)
+    result = await db.execute(q)
+    users = result.scalars().all()
+
+    counts = {}
+    if users:
+        ids = [u.id for u in users]
+        cnt_result = await db.execute(
+            select(Event.organizer_id, func.count(Event.id))
+            .where(Event.organizer_id.in_(ids))
+            .group_by(Event.organizer_id)
+        )
+        counts = dict(cnt_result.all())
+
+    return [
+        OrganizerProfile(
+            id=u.id,
+            first_name=u.first_name,
+            last_name=u.last_name,
+            avatar_url=u.avatar_url,
+            telegram_username=u.telegram_username,
+            rating=u.rating,
+            city=u.city,
+            created_at=u.created_at,
+            events_count=counts.get(u.id, 0),
+            reviews_count=0,
+        )
+        for u in users
+    ]
 
 
 @router.get("/{user_id}", response_model=OrganizerProfile)

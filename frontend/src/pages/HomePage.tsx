@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Map, List, Search } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
+import { Map, List, Search, Star } from 'lucide-react'
 import { eventsApi } from '@/api/events'
+import { usersApi, OrganizerProfile } from '@/api/users'
 import type { EventList, Category } from '@/types'
 import EventCard from '@/components/events/EventCard'
 import EventMap from '@/components/map/EventMap'
@@ -12,12 +13,13 @@ import clsx from 'clsx'
 import { getServerData } from '@/serverData'
 
 type View = 'grid' | 'map'
-type Tab = 'events' | 'catalog'
+type Tab = 'events' | 'organizers'
 
 export default function HomePage() {
   const initial = getServerData()
   const [events, setEvents] = useState<EventList[]>(initial.events ?? [])
   const [categories, setCategories] = useState<Category[]>(initial.categories ?? [])
+  const [organizers, setOrganizers] = useState<OrganizerProfile[]>([])
   const [loading, setLoading] = useState(!initial.events)
   const [view, setView] = useState<View>('grid')
   const [tab, setTab] = useState<Tab>('events')
@@ -38,7 +40,6 @@ export default function HomePage() {
         category_id: selectedCategory ?? undefined,
         search: search || undefined,
         only_available: onlyAvailable,
-        is_tour: tab === 'catalog',
       })
       setEvents(data)
     } catch {
@@ -46,16 +47,34 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory, search, onlyAvailable, tab])
+  }, [selectedCategory, search, onlyAvailable])
+
+  const fetchOrganizers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data } = await usersApi.listOrganizers({ search: search || undefined })
+      setOrganizers(data)
+    } catch {
+      toast.error('Не удалось загрузить организаторов')
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
 
   useEffect(() => {
     setSelectedCategory(null)
+    setSearch('')
   }, [tab])
 
   useEffect(() => {
-    const timer = setTimeout(fetchEvents, 300)
-    return () => clearTimeout(timer)
-  }, [fetchEvents])
+    if (tab === 'events') {
+      const timer = setTimeout(fetchEvents, 300)
+      return () => clearTimeout(timer)
+    } else {
+      const timer = setTimeout(fetchOrganizers, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [tab, fetchEvents, fetchOrganizers])
 
   if (view === 'map') {
     return (
@@ -103,13 +122,13 @@ export default function HomePage() {
               Мероприятия
             </button>
             <button
-              onClick={() => setTab('catalog')}
+              onClick={() => setTab('organizers')}
               className={clsx(
                 'flex-1 py-2 rounded-lg text-sm font-medium transition-all',
-                tab === 'catalog' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                tab === 'organizers' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
               )}
             >
-              Форматы
+              Организаторы
             </button>
           </div>
         </div>
@@ -128,46 +147,48 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Category pills */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="flex flex-wrap gap-2 px-4 py-3 max-w-2xl mx-auto">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={clsx(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-              selectedCategory === null
-                ? 'bg-blue-700 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            )}
-          >
-            <span className="text-base leading-none">{tab === 'catalog' ? '🎭' : '🎯'}</span>
-            {tab === 'catalog' ? 'Все форматы' : 'Все'}
-          </button>
-          {categories.map((cat) => (
+      {/* Category pills — only for events tab */}
+      {tab === 'events' && (
+        <div className="bg-white border-b border-gray-100">
+          <div className="flex flex-wrap gap-2 px-4 py-3 max-w-2xl mx-auto">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+              onClick={() => setSelectedCategory(null)}
               className={clsx(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                selectedCategory === cat.id
+                selectedCategory === null
                   ? 'bg-blue-700 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               )}
             >
-              <span className="text-base leading-none">{cat.icon}</span>
-              {cat.name}
+              <span className="text-base leading-none">🎯</span>
+              Все
             </button>
-          ))}
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(selectedCategory === cat.id ? null : cat.id)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                  selectedCategory === cat.id
+                    ? 'bg-blue-700 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                )}
+              >
+                <span className="text-base leading-none">{cat.icon}</span>
+                {cat.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Events grid */}
+      {/* Content */}
       <div className="p-3 max-w-2xl mx-auto w-full">
         {loading ? (
-          <div className="grid grid-cols-2 gap-3">
+          <div className={clsx(tab === 'organizers' ? 'space-y-3' : 'grid grid-cols-2 gap-3')}>
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="card overflow-hidden animate-pulse">
-                <div className="h-36 bg-gray-200" />
+                <div className={clsx(tab === 'organizers' ? 'h-16' : 'h-36', 'bg-gray-200')} />
                 <div className="p-3 space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-3/4" />
                   <div className="h-3 bg-gray-100 rounded w-1/2" />
@@ -175,38 +196,74 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-        ) : events.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <div className="text-5xl mb-3">{tab === 'catalog' ? '🎭' : '🔍'}</div>
-            <p className="font-semibold text-gray-500">
-              {tab === 'catalog' ? 'Форматов пока нет' : 'Мероприятий не найдено'}
-            </p>
-            <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
-            {!isAuthenticated && (
-              <button onClick={() => navigate('/register')} className="mt-4 btn-primary text-sm">
-                Зарегистрироваться
-              </button>
-            )}
-          </div>
+        ) : tab === 'events' ? (
+          events.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <div className="text-5xl mb-3">🔍</div>
+              <p className="font-semibold text-gray-500">Мероприятий не найдено</p>
+              <p className="text-sm mt-1">Попробуйте изменить фильтры</p>
+              {!isAuthenticated && (
+                <button onClick={() => navigate('/register')} className="mt-4 btn-primary text-sm">
+                  Зарегистрироваться
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </div>
+          )
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {events.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
+          organizers.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <div className="text-5xl mb-3">👤</div>
+              <p className="font-semibold text-gray-500">Организаторов не найдено</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {organizers.map((org) => (
+                <Link
+                  key={org.id}
+                  to={`/users/${org.id}`}
+                  className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow"
+                >
+                  {org.avatar_url ? (
+                    <img src={org.avatar_url} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-lg flex-shrink-0">
+                      {org.first_name[0]}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900">{org.first_name} {org.last_name}</p>
+                    {org.city && <p className="text-xs text-gray-400 mt-0.5">{org.city}</p>}
+                    <p className="text-xs text-gray-500 mt-0.5">{org.events_count} мероприятий</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-yellow-500 flex-shrink-0">
+                    <Star className="w-4 h-4 fill-current" />
+                    <span className="text-sm font-medium text-gray-700">{org.rating.toFixed(1)}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )
         )}
       </div>
 
-      {/* Map toggle FAB */}
-      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40">
-        <button
-          onClick={() => setView('map')}
-          className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 active:bg-black text-white px-5 py-2.5 rounded-full shadow-lg transition-colors text-sm font-medium"
-        >
-          <Map className="w-4 h-4" />
-          На карте
-        </button>
-      </div>
+      {/* Map toggle FAB — only for events tab */}
+      {tab === 'events' && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setView('map')}
+            className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 active:bg-black text-white px-5 py-2.5 rounded-full shadow-lg transition-colors text-sm font-medium"
+          >
+            <Map className="w-4 h-4" />
+            На карте
+          </button>
+        </div>
+      )}
     </div>
   )
 }
