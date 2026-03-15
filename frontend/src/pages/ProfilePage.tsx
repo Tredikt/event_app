@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, /* Trophy, X, */ Users, Calendar } from 'lucide-react'
+import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, /* Trophy, X, */ Users, Calendar, BookOpen } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '@/api/auth'
@@ -12,7 +12,7 @@ import NotificationSettingsPanel from '@/components/notifications/NotificationSe
 import AvatarCropModal from '@/components/ui/AvatarCropModal'
 import EventCard from '@/components/events/EventCard'
 
-type MyTab = 'joined' | 'organized'
+type MyTab = 'joined' | 'organized' | null
 
 export default function ProfilePage() {
   const { user, updateUser, logout } = useAuthStore()
@@ -23,7 +23,7 @@ export default function ProfilePage() {
   // const [showRating, setShowRating] = useState(false)  // RATING DISABLED
   const [cropSrc, setCropSrc] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const [myTab, setMyTab] = useState<MyTab>('joined')
+  const [myTab, setMyTab] = useState<MyTab>(null)
   const [organized, setOrganized] = useState<EventList[]>([])
   const [joined, setJoined] = useState<EventList[]>([])
   const [eventsLoading, setEventsLoading] = useState(true)
@@ -149,11 +149,28 @@ export default function ProfilePage() {
         <h2 className="font-semibold text-gray-900 mb-1">Привязка Telegram</h2>
         <p className="text-sm text-gray-500 mb-4">Необходима для получения уведомлений о мероприятиях</p>
         {user.telegram_id ? (
-          <div className="flex items-center gap-2 text-green-600">
-            <CheckCircle className="w-5 h-5" />
-            <span className="text-sm font-medium">
-              Telegram привязан{user.telegram_username ? ` (@${user.telegram_username})` : ''}
-            </span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+              <span className="text-sm font-medium">
+                Telegram привязан{user.telegram_username ? ` (@${user.telegram_username})` : ''}
+              </span>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  await authApi.unlinkTelegram()
+                  updateUser({ ...user, telegram_id: null, telegram_username: null })
+                  setTelegramLink('')
+                  toast.success('Telegram отвязан')
+                } catch {
+                  toast.error('Ошибка')
+                }
+              }}
+              className="btn-secondary w-full text-sm"
+            >
+              Изменить аккаунт Telegram
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -176,16 +193,68 @@ export default function ProfilePage() {
       {/* Menu list */}
       <div className="card overflow-hidden divide-y divide-gray-100">
 
-        {/* RATING DISABLED — Мой рейтинг button commented out */}
-        {/* <button
-          onClick={() => setShowRating(true)}
+        {/* Vlog */}
+        <Link
+          to="/vlog"
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+        >
+          <BookOpen className="w-5 h-5 text-gray-300 flex-shrink-0" />
+          <span className="flex-1 text-sm font-medium text-gray-800">Влог</span>
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        </Link>
+
+        {/* My Events */}
+        <button
+          onClick={() => setMyTab((t) => t !== null ? null : 'joined')}
           className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors text-left"
         >
-          <Trophy className="w-5 h-5 text-gray-300 flex-shrink-0" />
-          <span className="flex-1 text-sm font-medium text-gray-800">Мой рейтинг</span>
-          <span className="text-sm font-bold mr-2 tabular-nums" style={{ color: ratingColor }}>{rating.toFixed(1)}</span>
-          <ChevronRight className="w-4 h-4 text-gray-400" />
-        </button> */}
+          <Calendar className="w-5 h-5 text-gray-300 flex-shrink-0" />
+          <span className="flex-1 text-sm font-medium text-gray-800">Мои события</span>
+          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${myTab !== null ? 'rotate-90' : ''}`} />
+        </button>
+
+        {myTab !== null && (
+          <div className="px-4 py-4 bg-gray-50 space-y-3">
+            <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-100">
+              <button
+                onClick={() => setMyTab('joined')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'joined' ? 'bg-blue-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Users className="w-4 h-4" />
+                Записан ({joined.length})
+              </button>
+              <button
+                onClick={() => setMyTab('organized')}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'organized' ? 'bg-blue-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Calendar className="w-4 h-4" />
+                Организую ({organized.length})
+              </button>
+            </div>
+            {eventsLoading ? (
+              <div className="grid grid-cols-2 gap-3">
+                {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-36 animate-pulse bg-gray-200" />)}
+              </div>
+            ) : (myTab === 'joined' ? joined : organized).length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <div className="text-3xl mb-2">{myTab === 'organized' ? '📋' : '🎯'}</div>
+                <p className="text-sm text-gray-500">
+                  {myTab === 'organized'
+                    ? <Link to="/events/new" className="text-blue-700 hover:underline">Создайте первое мероприятие</Link>
+                    : <Link to="/" className="text-blue-700 hover:underline">Найдите что-нибудь интересное</Link>}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {(myTab === 'joined' ? joined : organized).map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* RATING DISABLED — Мой рейтинг button commented out */}
 
         {/* Notifications */}
         <button
@@ -210,47 +279,6 @@ export default function ProfilePage() {
           <LogOut className="w-5 h-5 text-gray-300 flex-shrink-0" />
           <span className="flex-1 text-sm font-medium text-red-500">Выйти</span>
         </button>
-      </div>
-
-      {/* My Events */}
-      <div className="pt-2">
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Мои события</h2>
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-4">
-          <button
-            onClick={() => setMyTab('joined')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'joined' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-          >
-            <Users className="w-4 h-4 inline mr-1.5" />
-            Записан ({joined.length})
-          </button>
-          <button
-            onClick={() => setMyTab('organized')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${myTab === 'organized' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-          >
-            <Calendar className="w-4 h-4 inline mr-1.5" />
-            Организую ({organized.length})
-          </button>
-        </div>
-        {eventsLoading ? (
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-48 animate-pulse bg-gray-100" />)}
-          </div>
-        ) : (myTab === 'joined' ? joined : organized).length === 0 ? (
-          <div className="text-center py-10 text-gray-400">
-            <div className="text-4xl mb-2">{myTab === 'organized' ? '📋' : '🎯'}</div>
-            <p className="text-sm text-gray-500">
-              {myTab === 'organized'
-                ? <Link to="/events/new" className="text-blue-700 hover:underline">Создайте первое мероприятие</Link>
-                : <Link to="/" className="text-blue-700 hover:underline">Найдите что-нибудь интересное</Link>}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {(myTab === 'joined' ? joined : organized).map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* RATING DISABLED — Rating modal commented out */}

@@ -48,3 +48,21 @@ export function fmtChatTs(iso: string): string {
 export function isMoscowPast(iso: string): boolean {
   return parseMSK(iso) < new Date()
 }
+
+/** Return yyyy-MM-dd string in Moscow timezone (for grouping by day). */
+export function mskDateKey(iso: string): string {
+  return formatInTimeZone(parseMSK(iso), MSK, 'yyyy-MM-dd')
+}
+
+/** Human-readable day label: «Сегодня», «Вчера», or «15 марта» / «15 марта 2024». */
+export function dayLabel(iso: string): string {
+  const now = new Date()
+  const today = formatInTimeZone(now, MSK, 'yyyy-MM-dd')
+  const yesterday = formatInTimeZone(new Date(now.getTime() - 86400000), MSK, 'yyyy-MM-dd')
+  const key = mskDateKey(iso)
+  if (key === today) return 'Сегодня'
+  if (key === yesterday) return 'Вчера'
+  const thisYear = formatInTimeZone(now, MSK, 'yyyy')
+  const msgYear = formatInTimeZone(parseMSK(iso), MSK, 'yyyy')
+  return fmtDate(iso, msgYear === thisYear ? 'd MMMM' : 'd MMMM yyyy')
+}

@@ -20,6 +20,7 @@ const ConnectTelegramPage = lazy(() => import('@/pages/ConnectTelegramPage'))
 const OrganizerPage       = lazy(() => import('@/pages/OrganizerPage'))
 const ChatsPage           = lazy(() => import('@/pages/ChatsPage'))
 const ChatPage            = lazy(() => import('@/pages/ChatPage'))
+const VlogPage            = lazy(() => import('@/pages/VlogPage'))
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -69,6 +70,11 @@ export default function App() {
             </PrivateRoute>
           } />
           <Route path="/my-events" element={<Navigate to="/profile" replace />} />
+          <Route path="/vlog" element={
+            <PrivateRoute>
+              <Suspense fallback={null}><VlogPage /></Suspense>
+            </PrivateRoute>
+          } />
           <Route path="/chats" element={
             <PrivateRoute>
               <Suspense fallback={null}><ChatsPage /></Suspense>

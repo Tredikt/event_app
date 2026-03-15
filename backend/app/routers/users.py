@@ -11,6 +11,7 @@ from app.core.utils import moscow_now
 from app.core.deps import get_current_user
 from app.models.event import Event, EventParticipant, EventStatus
 # from app.models.review import Review  # RATING DISABLED
+from app.models.news import NewsPost
 from app.models.user import User
 from app.schemas.event import EventListOut
 from app.schemas.review import OrganizerProfile  # , ReviewCreate, ReviewOut  # RATING DISABLED
@@ -41,6 +42,7 @@ async def list_organizers(
     users = result.scalars().all()
 
     counts = {}
+    posts_counts = {}
     if users:
         ids = [u.id for u in users]
         cnt_result = await db.execute(
@@ -53,6 +55,12 @@ async def list_organizers(
             .group_by(Event.organizer_id)
         )
         counts = dict(cnt_result.all())
+        posts_result = await db.execute(
+            select(NewsPost.author_id, func.count(NewsPost.id))
+            .where(NewsPost.author_id.in_(ids))
+            .group_by(NewsPost.author_id)
+        )
+        posts_counts = dict(posts_result.all())
 
     return [
         OrganizerProfile(
@@ -66,6 +74,7 @@ async def list_organizers(
             created_at=u.created_at,
             events_count=counts.get(u.id, 0),
             reviews_count=0,
+            posts_count=posts_counts.get(u.id, 0),
         )
         for u in users
     ]
@@ -87,7 +96,9 @@ async def get_organizer_profile(
             Event.status.in_([EventStatus.active, EventStatus.completed]),
         )
     ) or 0
-    # reviews_count = await db.scalar(select(func.count()).where(Review.organizer_id == user_id)) or 0  # RATING DISABLED
+    posts_count = await db.scalar(
+        select(func.count()).where(NewsPost.author_id == user_id)
+    ) or 0
 
     return OrganizerProfile(
         id=user.id,
@@ -99,7 +110,8 @@ async def get_organizer_profile(
         city=user.city,
         created_at=user.created_at,
         events_count=events_count,
-        reviews_count=0,  # RATING DISABLED — was: reviews_count
+        reviews_count=0,
+        posts_count=posts_count,
     )
 
 

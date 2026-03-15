@@ -43,13 +43,13 @@ export default function CreateEventPage() {
         <ArrowLeft className="w-4 h-4" />Назад
       </button>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        {isTour ? 'Новый формат' : 'Новое мероприятие'}
+        {isTour ? 'Новый тип мероприятия' : 'Новое мероприятие'}
       </h1>
       <div className="card p-6">
         <EventForm
           categories={categories}
           onSubmit={handleSubmit}
-          submitLabel={isTour ? 'Создать формат' : 'Создать мероприятие'}
+          submitLabel={isTour ? 'Создать тип мероприятия' : 'Создать мероприятие'}
           defaultValues={{ capacity: 10, is_tour: isTour }}
         />
       </div>

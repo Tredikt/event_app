@@ -89,6 +89,19 @@ export default function EventDetailPage() {
     }
   }, [event, isAuthenticated, user])
 
+  const handleShare = async () => {
+    const url = window.location.href
+    const title = event?.title ?? 'Мероприятие'
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url })
+      } catch { /* user cancelled */ }
+    } else {
+      navigator.clipboard.writeText(url)
+      toast.success('Ссылка скопирована!')
+    }
+  }
+
   const carouselImages = event?.images && event.images.length > 0
     ? event.images.map((img) => img.image_url)
     : event?.image_url ? [event.image_url] : []
@@ -520,14 +533,31 @@ export default function EventDetailPage() {
                       <span className="text-xs font-medium">{joined ? 'Пойду ✓' : event.is_full ? 'Мест нет' : 'Пойду'}</span>
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* Contact organizer — shown when joined */}
+              {!isOrganizer && isAuthenticated && joined && (
+                <div className="flex gap-2 mb-1">
                   <button
-                    onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success('Ссылка скопирована!') }}
-                    className="flex-1 flex flex-col items-center gap-1 py-1 text-gray-600 hover:text-blue-700 transition-colors"
+                    onClick={async () => {
+                      try {
+                        const { data } = await chatApi.openChat(event.organizer.id)
+                        navigate(`/chats/${data.chat_id}`)
+                      } catch {
+                        toast.error('Ошибка открытия чата')
+                      }
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors"
                   >
-                    <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
-                      <Share2 className="w-5 h-5 text-gray-500" />
-                    </div>
-                    <span className="text-xs font-medium">Поделиться</span>
+                    <MessageSquare className="w-4 h-4" />
+                    Написать организатору
+                  </button>
+                  <button
+                    onClick={() => navigate(`/users/${event.organizer.id}`)}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    Профиль
                   </button>
                 </div>
               )}
@@ -581,6 +611,15 @@ export default function EventDetailPage() {
                   {event.address}
                 </div>
               </div>
+
+              {/* Share button */}
+              <button
+                onClick={handleShare}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors mb-4"
+              >
+                <Share2 className="w-4 h-4" />
+                Поделиться мероприятием
+              </button>
 
               <div className="prose prose-sm max-w-none text-gray-700">
                 <p className="whitespace-pre-wrap">{event.description}</p>
@@ -714,16 +753,6 @@ export default function EventDetailPage() {
                   ))}
                   <span className="text-xs text-gray-500">{event.organizer.rating.toFixed(1)}</span>
                 </div> */}
-                {event.organizer.telegram_username && (
-                  <a
-                    href={`https://t.me/${event.organizer.telegram_username}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-blue-700 hover:text-blue-700 transition-colors"
-                  >
-                    @{event.organizer.telegram_username}
-                  </a>
-                )}
               </div>
             </div>
 
@@ -744,30 +773,14 @@ export default function EventDetailPage() {
               </button>
             )}
 
-            {!isOrganizer && isAuthenticated && joined && (
-              <button
-                onClick={async () => {
-                  try {
-                    const { data } = await chatApi.openChat(event.organizer.id)
-                    navigate(`/chats/${data.chat_id}`)
-                  } catch {
-                    toast.error('Ошибка открытия чата')
-                  }
-                }}
-                className="w-full btn btn-secondary text-sm flex items-center justify-center gap-2"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Написать организатору
-              </button>
-            )}
 
           </div>
 
           {/* Instantiate catalog item as a real event */}
           {isOrganizer && event.is_tour && (
             <div className="card p-4">
-              <h3 className="font-semibold text-gray-900 mb-1">Создать мероприятие из формата</h3>
-              <p className="text-xs text-gray-500 mb-3">Выберите дату — появится разовое мероприятие в ленте с данными этого формата.</p>
+              <h3 className="font-semibold text-gray-900 mb-1">Создать мероприятие из типа</h3>
+              <p className="text-xs text-gray-500 mb-3">Выберите дату — появится разовое мероприятие в ленте с данными этого типа мероприятия.</p>
               <div className="flex gap-2">
                 <input
                   type="datetime-local"
@@ -819,17 +832,6 @@ export default function EventDetailPage() {
                       <p className="text-sm font-medium truncate">{p.user.first_name} {p.user.last_name}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs text-gray-400">{fmtDate(p.joined_at, 'd MMM, HH:mm')}</span>
-                        {p.user.telegram_username && (
-                          <a
-                            href={`https://t.me/${p.user.telegram_username}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            @{p.user.telegram_username}
-                          </a>
-                        )}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-gray-400">
@@ -914,17 +916,6 @@ export default function EventDetailPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* RATING DISABLED — user rating in attendance list commented out */}
                         {/* <span className="text-xs text-gray-400">⭐ {a.user.rating.toFixed(1)}</span> */}
-                        {a.user.telegram_username && (
-                          <a
-                            href={`https://t.me/${a.user.telegram_username}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            @{a.user.telegram_username}
-                          </a>
-                        )}
                       </div>
                     </div>
                     <div className={clsx(

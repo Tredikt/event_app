@@ -4,6 +4,7 @@ import { Home, Newspaper, Plus, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/api/auth'
 import clsx from 'clsx'
+import PullToRefresh from '@/components/ui/PullToRefresh'
 
 export default function Layout() {
   const { isAuthenticated, user, updateUser } = useAuthStore()
@@ -18,6 +19,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <PullToRefresh />
       <main className="flex-1 pb-16">
         <Outlet />
       </main>

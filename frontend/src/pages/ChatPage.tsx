@@ -5,7 +5,7 @@ import api from '@/api/client'
 import toast from 'react-hot-toast'
 import { chatApi, type ChatMessage } from '@/api/chat'
 import { useAuthStore } from '@/stores/authStore'
-import { fmtTime } from '@/utils/date'
+import { fmtTime, mskDateKey, dayLabel } from '@/utils/date'
 
 // Route WS through the same host as the frontend (Vite proxy in dev, nginx in prod)
 const WS_BASE = import.meta.env.VITE_WS_URL ||
@@ -32,6 +32,37 @@ export default function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // iOS PWA: fix layout when virtual keyboard opens/closes
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const NAV_H = 56 // h-14 bottom nav
+
+    const update = () => {
+      const el = containerRef.current
+      if (!el) return
+      const keyboardOpen = vv.height < window.innerHeight * 0.75
+      if (keyboardOpen) {
+        el.style.top = `${vv.offsetTop}px`
+        el.style.height = `${vv.height}px`
+        // scroll to latest message when keyboard opens
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      } else {
+        el.style.top = '0px'
+        el.style.height = `${vv.height - NAV_H}px`
+      }
+    }
+
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   // Load history + open WS
   useEffect(() => {
@@ -122,7 +153,11 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="fixed inset-0 bottom-14 flex flex-col bg-white max-w-2xl mx-auto left-0 right-0">
+    <div
+      ref={containerRef}
+      className="fixed left-0 right-0 flex flex-col bg-white max-w-2xl mx-auto"
+      style={{ top: 0, height: 'calc(100dvh - 56px)' }}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shadow-sm flex-shrink-0">
         <button onClick={() => navigate('/chats')} className="text-gray-500 hover:text-gray-800 transition-colors">
@@ -145,10 +180,21 @@ export default function ChatPage() {
         ) : messages.length === 0 ? (
           <div className="flex justify-center py-8 text-gray-400 text-sm">Начните общение</div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, idx) => {
             const isMe = msg.sender_id === user?.id
+            const dateKey = mskDateKey(msg.created_at)
+            const prevDateKey = idx > 0 ? mskDateKey(messages[idx - 1].created_at) : null
+            const showDivider = dateKey !== prevDateKey
             return (
-              <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.id}>
+                {showDivider && (
+                  <div className="flex items-center justify-center my-3">
+                    <span className="bg-gray-100 text-gray-400 text-xs font-medium px-3 py-1 rounded-full">
+                      {dayLabel(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+              <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm ${
                     isMe
@@ -178,6 +224,7 @@ export default function ChatPage() {
                     )}
                   </p>
                 </div>
+              </div>
               </div>
             )
           })

@@ -32,4 +32,5 @@ export const authApi = {
     api.post<UserProfile>('/auth/me/telegram', { telegram_id, telegram_username }),
   generateTelegramLink: () =>
     api.post<{ token: string; link: string }>('/telegram/generate-link-token'),
+  unlinkTelegram: () => api.delete('/telegram/unlink'),
 }

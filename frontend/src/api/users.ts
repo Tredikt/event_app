@@ -12,6 +12,7 @@ export interface OrganizerProfile {
   created_at: string
   events_count: number
   reviews_count: number
+  posts_count: number
 }
 
 export interface ReviewOut {

@@ -1,76 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, /* Star, */ CalendarDays, Award } from 'lucide-react'
+import { ArrowLeft, MapPin, CalendarDays, Award, Plus, Trash2, ImageIcon, Loader } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmtDate } from '@/utils/date'
-import { usersApi, type OrganizerProfile /*, type ReviewOut, type EligibleEvent */ } from '@/api/users'  // RATING DISABLED
+import { usersApi, type OrganizerProfile } from '@/api/users'
+import { newsApi, type NewsPost } from '@/api/news'
+import { useAuthStore } from '@/stores/authStore'
 import type { EventList } from '@/types'
-
-// RATING DISABLED — Stars and StarInput components commented out
-// function Stars({ value, size = 'sm' }: { value: number; size?: 'sm' | 'lg' }) {
-//   const sz = size === 'lg' ? 'text-2xl' : 'text-sm'
-//   return (
-//     <span className={sz}>
-//       {[1, 2, 3, 4, 5].map((i) => (
-//         <span key={i} className={i <= Math.round(value) ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-//       ))}
-//     </span>
-//   )
-// }
-//
-// function StarInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-//   const [hover, setHover] = useState(0)
-//   return (
-//     <div className="flex gap-1">
-//       {[1, 2, 3, 4, 5].map((i) => (
-//         <button
-//           key={i}
-//           type="button"
-//           onClick={() => onChange(i)}
-//           onMouseEnter={() => setHover(i)}
-//           onMouseLeave={() => setHover(0)}
-//           className="text-2xl leading-none transition-transform hover:scale-110"
-//         >
-//           <span className={(hover || value) >= i ? 'text-yellow-400' : 'text-gray-300'}>★</span>
-//         </button>
-//       ))}
-//     </div>
-//   )
-// }
 
 export default function OrganizerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const userId = Number(id)
+  const { user } = useAuthStore()
+  const isOwn = user?.id === userId
 
   const [profile, setProfile] = useState<OrganizerProfile | null>(null)
-  // const [reviews, setReviews] = useState<ReviewOut[]>([])  // RATING DISABLED
-  // const [eligibleEvents, setEligibleEvents] = useState<EligibleEvent[]>([])  // RATING DISABLED
   const [loading, setLoading] = useState(true)
 
   const [eventsTab, setEventsTab] = useState<'upcoming' | 'past'>('upcoming')
   const [upcomingEvents, setUpcomingEvents] = useState<EventList[]>([])
   const [pastEvents, setPastEvents] = useState<EventList[]>([])
   const [eventsLoading, setEventsLoading] = useState(false)
-  // RATING DISABLED — review form state commented out
-  // const [showForm, setShowForm] = useState(false)
-  // const [selectedEvent, setSelectedEvent] = useState<number>(0)
-  // const [rating, setRating] = useState(5)
-  // const [reviewText, setReviewText] = useState('')
-  // const [submitting, setSubmitting] = useState(false)
+
+  const [posts, setPosts] = useState<NewsPost[]>([])
+  const [postsLoading, setPostsLoading] = useState(false)
+  const [showPostForm, setShowPostForm] = useState(false)
+  const [postTitle, setPostTitle] = useState('')
+  const [postContent, setPostContent] = useState('')
+  const [postImage, setPostImage] = useState<File | null>(null)
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null)
+  const [postSubmitting, setPostSubmitting] = useState(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!userId) return
-    Promise.all([
-      usersApi.getProfile(userId),
-      // usersApi.getReviews(userId),  // RATING DISABLED
-    ]).then(([p /*, r */]) => {
-      setProfile(p.data)
-      // setReviews(r.data)  // RATING DISABLED
-    }).catch(() => {
-      toast.error('Пользователь не найден')
-      navigate('/')
-    }).finally(() => setLoading(false))
+    usersApi.getProfile(userId)
+      .then((p) => setProfile(p.data))
+      .catch(() => { toast.error('Пользователь не найден'); navigate('/') })
+      .finally(() => setLoading(false))
   }, [userId])
 
   useEffect(() => {
@@ -85,45 +53,63 @@ export default function OrganizerPage() {
     }).catch(() => {}).finally(() => setEventsLoading(false))
   }, [userId])
 
-  // RATING DISABLED — eligible events fetch commented out
-  // useEffect(() => {
-  //   if (!isAuthenticated || !userId || user?.id === userId) return
-  //   usersApi.getEligibleEvents(userId)
-  //     .then((r) => {
-  //       setEligibleEvents(r.data)
-  //       if (r.data.length === 1) setSelectedEvent(r.data[0].id)
-  //     })
-  //     .catch(() => {})
-  // }, [isAuthenticated, userId, user])
+  useEffect(() => {
+    if (!userId) return
+    setPostsLoading(true)
+    newsApi.list({ author_id: userId })
+      .then((r) => setPosts(r.data))
+      .catch(() => {})
+      .finally(() => setPostsLoading(false))
+  }, [userId])
 
-  // RATING DISABLED — handleSubmitReview and recalcRating commented out
-  // const handleSubmitReview = async (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   if (!selectedEvent) { toast.error('Выберите мероприятие'); return }
-  //   if (!rating) { toast.error('Поставьте оценку'); return }
-  //   setSubmitting(true)
-  //   try {
-  //     const { data: review } = await usersApi.createReview(userId, {
-  //       event_id: selectedEvent,
-  //       rating,
-  //       text: reviewText.trim() || undefined,
-  //     })
-  //     setReviews((prev) => [review, ...prev])
-  //     setProfile((p) => p ? { ...p, reviews_count: p.reviews_count + 1, rating: recalcRating([review, ...reviews]) } : p)
-  //     setEligibleEvents((prev) => prev.filter((e) => e.id !== selectedEvent))
-  //     setShowForm(false)
-  //     setReviewText('')
-  //     setRating(5)
-  //     toast.success('Отзыв опубликован!')
-  //   } catch (e: any) {
-  //     toast.error(e.response?.data?.detail || 'Ошибка')
-  //   } finally {
-  //     setSubmitting(false)
-  //   }
-  // }
-  //
-  // const recalcRating = (revs: ReviewOut[]) =>
-  //   revs.length ? Math.round((revs.reduce((s, r) => s + r.rating, 0) / revs.length) * 100) / 100 : 5
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPostImage(file)
+    const reader = new FileReader()
+    reader.onload = () => setPostImagePreview(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handlePostSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!postTitle.trim() || !postContent.trim()) {
+      toast.error('Заполните заголовок и текст')
+      return
+    }
+    setPostSubmitting(true)
+    try {
+      const form = new FormData()
+      form.append('title', postTitle.trim())
+      form.append('content', postContent.trim())
+      if (postImage) form.append('image', postImage)
+      const { data } = await newsApi.create(form)
+      setPosts((prev) => [data, ...prev])
+      setProfile((p) => p ? { ...p, posts_count: p.posts_count + 1 } : p)
+      setPostTitle('')
+      setPostContent('')
+      setPostImage(null)
+      setPostImagePreview(null)
+      setShowPostForm(false)
+      toast.success('Публикация создана!')
+    } catch {
+      toast.error('Ошибка публикации')
+    } finally {
+      setPostSubmitting(false)
+    }
+  }
+
+  const handleDeletePost = async (postId: number) => {
+    try {
+      await newsApi.delete(postId)
+      setPosts((prev) => prev.filter((p) => p.id !== postId))
+      setProfile((p) => p ? { ...p, posts_count: Math.max(0, p.posts_count - 1) } : p)
+      toast.success('Пост удалён')
+    } catch {
+      toast.error('Ошибка удаления')
+    }
+  }
 
   if (loading || !profile) {
     return (
@@ -134,10 +120,8 @@ export default function OrganizerPage() {
     )
   }
 
-  // const canReview = isAuthenticated && user?.id !== userId && eligibleEvents.length > 0  // RATING DISABLED
-
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4 pb-24">
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
         <ArrowLeft className="w-4 h-4" />Назад
       </button>
@@ -154,19 +138,10 @@ export default function OrganizerPage() {
           )}
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-gray-900">{profile.first_name} {profile.last_name}</h1>
-            {profile.telegram_username && (
-              <a href={`https://t.me/${profile.telegram_username}`} target="_blank" rel="noreferrer"
-                className="text-sm text-blue-700 hover:underline">@{profile.telegram_username}</a>
-            )}
-            {/* RATING DISABLED — Stars rating display commented out */}
-            {/* <div className="flex items-center gap-1.5 mt-1">
-              <Stars value={profile.rating} />
-              <span className="text-sm font-semibold text-gray-700">{profile.rating.toFixed(1)}</span>
-            </div> */}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="grid grid-cols-3 gap-3 mt-4">
           <div className="bg-gray-50 rounded-xl p-3 text-center">
             <CalendarDays className="w-4 h-4 text-blue-700 mx-auto mb-1" />
             <p className="text-lg font-bold text-gray-900">{profile.events_count}</p>
@@ -174,28 +149,27 @@ export default function OrganizerPage() {
           </div>
           <div className="bg-gray-50 rounded-xl p-3 text-center">
             <Award className="w-4 h-4 text-blue-700 mx-auto mb-1" />
-            <p className="text-lg font-bold text-gray-900">{profile.reviews_count}</p>
-            <p className="text-xs text-gray-500">отзывов</p>
+            <p className="text-lg font-bold text-gray-900">{profile.posts_count}</p>
+            <p className="text-xs text-gray-500">публикаций</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3 text-center">
+            <MapPin className="w-4 h-4 text-blue-700 mx-auto mb-1" />
+            <p className="text-sm font-bold text-gray-900 truncate">{profile.city || '—'}</p>
+            <p className="text-xs text-gray-500">город</p>
           </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-          {profile.city && (
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{profile.city}</span>
-          )}
           <span className="flex items-center gap-1">
             <CalendarDays className="w-3 h-3" />
             На сайте с {fmtDate(profile.created_at, 'MMMM yyyy')}
           </span>
         </div>
-
       </div>
 
       {/* Events section */}
       <div className="bg-white rounded-2xl shadow-sm p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <h2 className="font-semibold text-gray-900">Мероприятия</h2>
-        </div>
+        <h2 className="font-semibold text-gray-900 mb-4">Мероприятия</h2>
         <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
           <button
             onClick={() => setEventsTab('upcoming')}
@@ -234,9 +208,7 @@ export default function OrganizerPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-900 truncate">{e.title}</p>
                   {e.date && (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {fmtDate(e.date, 'd MMMM yyyy')}
-                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{fmtDate(e.date, 'd MMMM yyyy')}</p>
                   )}
                 </div>
                 <span className="text-xs text-gray-400 flex-shrink-0">{e.participants_count}/{e.capacity}</span>
@@ -246,88 +218,115 @@ export default function OrganizerPage() {
         )}
       </div>
 
-      {/* RATING DISABLED — Review form commented out */}
-      {/* {canReview && !showForm && (
-        <button onClick={() => setShowForm(true)} className="w-full btn-primary text-sm">
-          <Star className="w-4 h-4" />Оставить отзыв
-        </button>
-      )}
-      {showForm && (
-        <div className="bg-white rounded-2xl shadow-sm p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Ваш отзыв</h3>
-          <form onSubmit={handleSubmitReview} className="space-y-4">
-            {eligibleEvents.length > 1 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Мероприятие</label>
-                <select
-                  value={selectedEvent}
-                  onChange={(e) => setSelectedEvent(Number(e.target.value))}
-                  className="input"
+      {/* Vlog section */}
+      <div className="bg-white rounded-2xl shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-900">Влог</h2>
+          {isOwn && !showPostForm && (
+            <button
+              onClick={() => setShowPostForm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm font-medium rounded-xl hover:bg-blue-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Публикация
+            </button>
+          )}
+        </div>
+
+        {isOwn && showPostForm && (
+          <form onSubmit={handlePostSubmit} className="mb-4 space-y-3 bg-gray-50 rounded-xl p-4">
+            <input
+              value={postTitle}
+              onChange={(e) => setPostTitle(e.target.value)}
+              className="input w-full"
+              placeholder="Заголовок"
+            />
+            <textarea
+              value={postContent}
+              onChange={(e) => setPostContent(e.target.value)}
+              className="input w-full resize-none"
+              rows={4}
+              placeholder="Текст публикации..."
+            />
+            {postImagePreview && (
+              <div className="relative">
+                <img src={postImagePreview} alt="" className="w-full rounded-xl object-cover max-h-48" />
+                <button
+                  type="button"
+                  onClick={() => { setPostImage(null); setPostImagePreview(null) }}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center"
                 >
-                  <option value={0}>Выберите мероприятие...</option>
-                  {eligibleEvents.map((e) => (
-                    <option key={e.id} value={e.id}>{e.title}</option>
-                  ))}
-                </select>
+                  ×
+                </button>
               </div>
             )}
-            {eligibleEvents.length === 1 && (
-              <p className="text-sm text-gray-600">Мероприятие: <span className="font-medium">{eligibleEvents[0].title}</span></p>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Оценка</label>
-              <StarInput value={rating} onChange={setRating} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Комментарий (необязательно)</label>
-              <textarea
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                className="input resize-none h-24"
-                placeholder="Расскажите о своём опыте..."
-              />
-            </div>
+            <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 btn-secondary text-sm">Отмена</button>
-              <button type="submit" disabled={submitting || !selectedEvent} className="flex-1 btn-primary text-sm disabled:opacity-50">
-                {submitting ? 'Публикуем...' : 'Опубликовать'}
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 transition-colors"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Фото
+              </button>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => { setShowPostForm(false); setPostTitle(''); setPostContent(''); setPostImage(null); setPostImagePreview(null) }}
+                className="px-3 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={postSubmitting}
+                className="px-4 py-2 rounded-xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+              >
+                {postSubmitting ? <Loader className="w-4 h-4 animate-spin" /> : 'Опубликовать'}
               </button>
             </div>
           </form>
-        </div>
-      )} */}
-
-      {/* RATING DISABLED — Reviews list commented out */}
-      {/* <div className="space-y-3">
-        <h2 className="font-semibold text-gray-900 text-sm px-1">Отзывы ({reviews.length})</h2>
-        {reviews.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-6 text-center text-gray-400 text-sm">
-            Отзывов пока нет
-          </div>
-        ) : (
-          reviews.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl shadow-sm p-4">
-              <div className="flex items-start gap-3">
-                {r.reviewer.avatar_url ? (
-                  <img src={r.reviewer.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-semibold text-sm flex-shrink-0">
-                    {r.reviewer.first_name[0]}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-sm text-gray-900">{r.reviewer.first_name} {r.reviewer.last_name}</span>
-                    <Stars value={r.rating} />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{r.event_title} · {fmtDate(r.created_at, 'd MMM yyyy')}</p>
-                  {r.text && <p className="text-sm text-gray-700 mt-2 leading-relaxed">{r.text}</p>}
-                </div>
-              </div>
-            </div>
-          ))
         )}
-      </div> */}
+
+        {postsLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />)}
+          </div>
+        ) : posts.length === 0 ? (
+          <p className="text-center text-gray-400 text-sm py-6">
+            {isOwn ? 'Нет публикаций. Создайте первую!' : 'Публикаций пока нет'}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {posts.map((post) => {
+              const imgUrl = post.images.length > 0 ? post.images[0].image_url : post.image_url
+              return (
+                <div key={post.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                  {imgUrl && (
+                    <img src={imgUrl} alt="" className="w-full object-cover max-h-48" />
+                  )}
+                  <div className="p-3 space-y-1">
+                    <div className="flex items-start gap-2 justify-between">
+                      <p className="font-medium text-sm text-gray-900 leading-snug flex-1">{post.title}</p>
+                      {isOwn && (
+                        <button
+                          onClick={() => handleDeletePost(post.id)}
+                          className="text-gray-300 hover:text-red-400 flex-shrink-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{post.content}</p>
+                    <p className="text-xs text-gray-400">{fmtDate(post.created_at, 'd MMMM yyyy')}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

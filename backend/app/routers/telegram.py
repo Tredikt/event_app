@@ -126,7 +126,7 @@ async def _create_news_post(chat_id: int, draft: dict, photo_bytes: Optional[byt
             content=draft["content"],
             city=draft.get("city") or None,
             image_url=image_url,
-            author_id=user.id if user else None,
+            author_id=None,
             event_id=draft.get("event_id"),
         )
         db.add(post)
@@ -455,6 +455,23 @@ async def generate_link_token(
         "token": token,
         "link": f"https://t.me/{bot_username}?start={token}",
     }
+
+
+@router.delete("/unlink")
+async def unlink_telegram(
+    current_user: User = Depends(get_current_user),
+):
+    """Remove Telegram binding from the current user."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.id == current_user.id))
+        user = result.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        user.telegram_id = None
+        user.telegram_username = None
+        await db.commit()
+        await db.refresh(user)
+    return {"ok": True}
 
 
 # ── Bot lifecycle (called from main.py lifespan) ──────────────────────────────

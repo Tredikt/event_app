@@ -39,5 +39,6 @@ class OrganizerProfile(BaseModel):
     created_at: datetime
     events_count: int
     reviews_count: int
+    posts_count: int = 0
 
     model_config = {"from_attributes": True}

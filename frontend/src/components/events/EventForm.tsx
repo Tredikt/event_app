@@ -185,7 +185,7 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
         control={control}
         render={({ field }) => (
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Тип</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">Тип мероприятия</p>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -217,8 +217,8 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
               >
                 <span className="text-2xl">🗂️</span>
                 <div>
-                  <p className={`text-sm font-semibold ${field.value ? 'text-blue-700' : 'text-gray-800'}`}>Формат</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">Шаблон без даты — создавайте мероприятия по нему когда угодно</p>
+                  <p className={`text-sm font-semibold ${field.value ? 'text-blue-700' : 'text-gray-800'}`}>Тип мероприятия</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-snug">Опишите событие без даты. Позже можно создавать конкретные мероприятия</p>
                 </div>
                 <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${field.value ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
                   {field.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}

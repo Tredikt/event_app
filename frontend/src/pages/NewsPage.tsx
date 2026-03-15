@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Search, MapPin, Trash2, X, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
 import { newsApi, type NewsPost } from '@/api/news'
 import { useAuthStore } from '@/stores/authStore'
@@ -117,11 +117,12 @@ export default function NewsPage() {
   const [cityFilter, setCityFilter] = useState('')
   const [cityInput, setCityInput] = useState('')
   const { user } = useAuthStore()
+  const navigate = useNavigate()
 
   const fetchPosts = async (filter: string) => {
     setLoading(true)
     try {
-      const { data } = await newsApi.list(filter || undefined)
+      const { data } = await newsApi.list(filter ? { city: filter } : undefined)
       setPosts(data)
     } catch {
       toast.error('Не удалось загрузить новости')
@@ -219,14 +220,35 @@ export default function NewsPage() {
                   />
                 )}
                 <div className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-gray-900 text-sm leading-snug flex-1">{post.title}</h3>
-                    {user?.is_admin && (
+                  {/* Author row */}
+                  <div className="flex items-center justify-between gap-2">
+                    {post.author ? (
+                      <button
+                        onClick={() => navigate(`/users/${post.author!.id}`)}
+                        className="flex items-center gap-2"
+                      >
+                        {post.author.avatar_url ? (
+                          <img src={post.author.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-[10px] font-bold">
+                            {post.author.first_name[0]}
+                          </div>
+                        )}
+                        <span className="text-xs font-medium text-gray-600">{post.author.first_name} {post.author.last_name}</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <img src="/favicon.svg" alt="" className="w-6 h-6 rounded-lg flex-shrink-0" />
+                        <span className="text-xs font-semibold text-gray-700">Повод</span>
+                      </div>
+                    )}
+                    {(user?.is_admin || user?.id === post.author?.id) && (
                       <button onClick={() => handleDelete(post.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
+                  <h3 className="font-semibold text-gray-900 text-sm leading-snug">{post.title}</h3>
                   <NewsContent content={post.content} />
                   <div className="flex items-center gap-2 pt-1 text-xs text-gray-400">
                     {post.city && (

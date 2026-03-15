@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
 import type { EventList } from '@/types'
 import { fmtDate } from '@/utils/date'
+import { Locate } from 'lucide-react'
 
 declare global {
   interface Window {
@@ -40,8 +41,34 @@ export default function EventMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const onMapClickRef = useRef(onMapClick)
-  // Signals that the map instance is ready — triggers Effect 2
   const [mapReady, setMapReady] = useState(false)
+  const [locating, setLocating] = useState(false)
+
+  const goToMyLocation = () => {
+    if (!navigator.geolocation || !mapRef.current) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const map = mapRef.current
+        map.setCenter([coords.latitude, coords.longitude], 15, { duration: 400 })
+        // Add/update user location pin
+        if ((map as any)._myLocPin) {
+          (map as any)._myLocPin.geometry.setCoordinates([coords.latitude, coords.longitude])
+        } else {
+          const pin = new window.ymaps.Placemark(
+            [coords.latitude, coords.longitude],
+            { balloonContent: 'Вы здесь' },
+            { preset: 'islands#blueCircleDotIcon' }
+          )
+          map.geoObjects.add(pin)
+          ;(map as any)._myLocPin = pin
+        }
+        setLocating(false)
+      },
+      () => setLocating(false),
+      { timeout: 8000 }
+    )
+  }
 
   useEffect(() => {
     onMapClickRef.current = onMapClick
@@ -137,9 +164,45 @@ export default function EventMap({
   }, [mapReady, events, selectedPin?.[0], selectedPin?.[1]]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div
-      ref={containerRef}
-      style={{ height, width: '100%', borderRadius: '1rem', overflow: 'hidden' }}
-    />
+    <div style={{ height, width: '100%', position: 'relative' }}>
+      <div
+        ref={containerRef}
+        style={{ height: '100%', width: '100%', borderRadius: '1rem', overflow: 'hidden' }}
+      />
+      {interactive && (
+        <button
+          onClick={goToMyLocation}
+          disabled={locating}
+          style={{
+            position: 'absolute',
+            bottom: '70px',
+            right: '12px',
+            zIndex: 10,
+            background: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+            padding: '8px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '13px',
+            fontWeight: 500,
+            color: locating ? '#9CA3AF' : '#1D4ED8',
+            cursor: locating ? 'default' : 'pointer',
+          }}
+        >
+          <Locate
+            style={{
+              width: 16,
+              height: 16,
+              animation: locating ? 'spin 1s linear infinite' : 'none',
+            }}
+          />
+          Где я?
+        </button>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+    </div>
   )
 }

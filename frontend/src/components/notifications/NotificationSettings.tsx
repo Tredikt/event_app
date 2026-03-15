@@ -190,9 +190,6 @@ export default function NotificationSettingsPanel() {
                   <p className="text-sm font-medium truncate">
                     {sub.organizer.first_name} {sub.organizer.last_name}
                   </p>
-                  {sub.organizer.telegram_username && (
-                    <p className="text-xs text-gray-400">@{sub.organizer.telegram_username}</p>
-                  )}
                 </div>
                 <button
                   onClick={() => unfollowOrganizer(sub.organizer.id)}

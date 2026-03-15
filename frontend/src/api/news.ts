@@ -20,15 +20,15 @@ export interface NewsPost {
   image_url?: string
   images: NewsImage[]
   city?: string
-  author: NewsAuthor
+  author?: NewsAuthor
   event_id?: number
   event_image_url?: string
   created_at: string
 }
 
 export const newsApi = {
-  list: (city?: string) =>
-    api.get<NewsPost[]>('/news', { params: city ? { city } : {} }),
+  list: (params?: { city?: string; author_id?: number }) =>
+    api.get<NewsPost[]>('/news', { params }),
 
   create: (data: FormData) =>
     api.post<NewsPost>('/news', data, {

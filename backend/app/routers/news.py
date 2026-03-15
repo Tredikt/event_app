@@ -18,6 +18,7 @@ router = APIRouter(prefix="/news", tags=["news"])
 async def list_news(
     response: Response,
     city: Optional[str] = None,
+    author_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
     response.headers["Cache-Control"] = "public, max-age=60"
@@ -28,6 +29,8 @@ async def list_news(
     )
     if city:
         q = q.where(NewsPost.city.ilike(f"%{city}%"))
+    if author_id:
+        q = q.where(NewsPost.author_id == author_id)
     result = await db.execute(q)
     return [NewsPostOut.from_post(p) for p in result.scalars().all()]
 
@@ -41,9 +44,6 @@ async def create_news(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Только администраторы могут публиковать новости")
-
     image_url = None
     if image and image.filename:
         from app.services.file_service import save_event_image
@@ -75,9 +75,6 @@ async def upload_news_images(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Недостаточно прав")
-
     result = await db.execute(
         select(NewsPost)
         .options(selectinload(NewsPost.author), selectinload(NewsPost.event), selectinload(NewsPost.images))
@@ -86,6 +83,8 @@ async def upload_news_images(
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Пост не найден")
+    if not current_user.is_admin and post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав")
 
     from app.services.file_service import save_event_image
     start_order = len(post.images)
@@ -113,12 +112,13 @@ async def delete_news_image(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Недостаточно прав")
-
     img = await db.get(NewsPostImage, image_id)
     if not img or img.post_id != post_id:
         raise HTTPException(status_code=404, detail="Фото не найдено")
+
+    post_check = await db.get(NewsPost, post_id)
+    if post_check and not current_user.is_admin and post_check.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Нет прав")
 
     deleted_url = img.image_url
     await db.delete(img)
