@@ -489,7 +489,8 @@ export default function EventDetailPage() {
 
               {/* Action buttons row */}
               {!isOrganizer && (
-                <div className="flex border-b border-gray-100 mb-4 -mx-5 px-5 pb-4">
+                <div className="flex flex-col border-b border-gray-100 mb-5 -mx-5 px-5 pb-5">
+                  <div className="flex">
                   <button
                     onClick={handleSubscribe}
                     disabled={actionLoading}
@@ -533,12 +534,16 @@ export default function EventDetailPage() {
                       <span className="text-xs font-medium">{joined ? 'Пойду ✓' : event.is_full ? 'Мест нет' : 'Пойду'}</span>
                     </button>
                   )}
+                  </div>
+                  {subscribed && event.date && (
+                    <p className="text-xs text-gray-400 text-center mt-2">Напоминание придёт за 2 часа до начала</p>
+                  )}
                 </div>
               )}
 
               {/* Contact organizer — shown when joined */}
               {!isOrganizer && isAuthenticated && joined && (
-                <div className="flex gap-2 mb-1">
+                <div className="flex gap-2 mb-4">
                   <button
                     onClick={async () => {
                       try {
@@ -605,7 +610,7 @@ export default function EventDetailPage() {
                 )}
               </div>
 
-              <div className="space-y-2 mb-4">
+              <div className="mb-5">
                 <div className="flex items-start gap-2 text-sm text-gray-600">
                   <MapPin className="w-4 h-4 text-blue-700 flex-shrink-0 mt-0.5" />
                   {event.address}

@@ -24,6 +24,8 @@ const VlogPage            = lazy(() => import('@/pages/VlogPage'))
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const hasHydrated = useAuthStore((s) => s._hasHydrated)
+  if (!hasHydrated) return null
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 

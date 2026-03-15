@@ -9,6 +9,13 @@ interface Props {
   onCancel: () => void
 }
 
+const ASPECTS = [
+  { label: 'Своб.', value: undefined },
+  { label: '1:1', value: 1 },
+  { label: '4:3', value: 4 / 3 },
+  { label: '16:9', value: 16 / 9 },
+] as const
+
 async function getCroppedBlob(imageSrc: string, cropArea: Area): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image()
@@ -34,6 +41,7 @@ async function getCroppedBlob(imageSrc: string, cropArea: Area): Promise<Blob> {
 export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
+  const [aspectIdx, setAspectIdx] = useState(0)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -52,6 +60,8 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
     }
   }
 
+  const aspect = ASPECTS[aspectIdx].value
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* Header */}
@@ -59,7 +69,7 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
         <button type="button" onClick={onCancel} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
           <X className="w-5 h-5" />
         </button>
-        <span className="text-white font-medium text-sm">Обрезать фото</span>
+        <span className="text-white font-medium text-sm">Редактировать фото</span>
         <button
           type="button"
           onClick={handleConfirm}
@@ -76,11 +86,12 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
           image={src}
           crop={crop}
           zoom={zoom}
-          aspect={1}
+          aspect={aspect}
           onCropChange={setCrop}
           onZoomChange={setZoom}
           onCropComplete={onCropComplete}
           showGrid={false}
+          restrictPosition={false}
           style={{
             containerStyle: { background: '#000' },
             cropAreaStyle: { border: '2px solid white', borderRadius: '12px' },
@@ -88,12 +99,28 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
         />
       </div>
 
+      {/* Aspect ratio selector */}
+      <div className="flex items-center justify-center gap-2 px-6 pt-4 bg-black/80 flex-shrink-0">
+        {ASPECTS.map((a, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setAspectIdx(i)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              aspectIdx === i ? 'bg-white text-black' : 'bg-white/10 text-white/70 hover:bg-white/20'
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
+
       {/* Zoom slider */}
       <div className="flex items-center gap-3 px-6 py-4 bg-black/80 flex-shrink-0">
         <span className="text-white/50 text-xs">−</span>
         <input
           type="range"
-          min={1}
+          min={0.1}
           max={3}
           step={0.01}
           value={zoom}

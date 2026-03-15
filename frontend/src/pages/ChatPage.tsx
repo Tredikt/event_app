@@ -34,36 +34,6 @@ export default function ChatPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // iOS PWA: fix layout when virtual keyboard opens/closes
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const NAV_H = 56 // h-14 bottom nav
-
-    const update = () => {
-      const el = containerRef.current
-      if (!el) return
-      const keyboardOpen = vv.height < window.innerHeight * 0.75
-      if (keyboardOpen) {
-        el.style.top = `${vv.offsetTop}px`
-        el.style.height = `${vv.height}px`
-        // scroll to latest message when keyboard opens
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-      } else {
-        el.style.top = '0px'
-        el.style.height = `${vv.height - NAV_H}px`
-      }
-    }
-
-    update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-    }
-  }, [])
-
   // Load history + open WS
   useEffect(() => {
     if (!id || !token) return
@@ -272,6 +242,7 @@ export default function ChatPage() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKey}
+          onFocus={() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)}
           placeholder="Сообщение..."
           className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
         />

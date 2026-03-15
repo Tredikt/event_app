@@ -197,7 +197,7 @@ export default function HomePage() {
 
       {/* Filter bottom sheet */}
       {filterOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="fixed inset-x-0 top-0 bottom-14 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/40" onClick={() => setFilterOpen(false)} />
           <div className="relative bg-white rounded-t-2xl shadow-2xl max-h-[85vh] flex flex-col">
             {/* Handle */}
@@ -266,7 +266,7 @@ export default function HomePage() {
             </div>
 
             {/* Actions — always visible at bottom */}
-            <div className="px-5 pb-8 pt-3 flex gap-3 border-t border-gray-100 flex-shrink-0">
+            <div className="px-5 pb-4 pt-3 flex gap-3 border-t border-gray-100 flex-shrink-0">
               <button
                 onClick={resetFilters}
                 className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
