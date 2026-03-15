@@ -5,13 +5,14 @@ import api from '@/api/client'
 import toast from 'react-hot-toast'
 import { chatApi, type ChatMessage } from '@/api/chat'
 import { useAuthStore } from '@/stores/authStore'
+import { fmtTime } from '@/utils/date'
 
 // Route WS through the same host as the frontend (Vite proxy in dev, nginx in prod)
 const WS_BASE = import.meta.env.VITE_WS_URL ||
   `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api`
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
+  return fmtTime(iso)
 }
 
 export default function ChatPage() {

@@ -5,6 +5,7 @@ from sqlalchemy import ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import moscow_now
 
 
 class Review(Base):
@@ -17,7 +18,7 @@ class Review(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
     rating: Mapped[int] = mapped_column(Integer)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     reviewer: Mapped["User"] = relationship("User", foreign_keys=[reviewer_id])
     organizer: Mapped["User"] = relationship("User", foreign_keys=[organizer_id])

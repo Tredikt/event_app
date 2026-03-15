@@ -3,11 +3,11 @@
 from datetime import datetime
 from typing import Optional
 
-from datetime import timezone
 from pydantic import BaseModel, field_validator
 
 from app.models.event import EventStatus, ParticipantStatus
 from app.schemas.user import UserPublic
+from app.core.utils import MOSCOW_TZ
 
 
 class CategoryOut(BaseModel):
@@ -19,12 +19,12 @@ class CategoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-def _to_naive_utc(v: Optional[datetime]) -> Optional[datetime]:
-    """Strip timezone info, converting to UTC first if necessary."""
+def _to_naive_moscow(v: Optional[datetime]) -> Optional[datetime]:
+    """Convert to Moscow time and strip timezone info."""
     if v is None:
         return None
     if v.tzinfo is not None:
-        v = v.astimezone(timezone.utc).replace(tzinfo=None)
+        v = v.astimezone(MOSCOW_TZ).replace(tzinfo=None)
     return v
 
 
@@ -45,7 +45,7 @@ class EventCreate(BaseModel):
     @field_validator('date', mode='after')
     @classmethod
     def normalize_date(cls, v: Optional[datetime]) -> Optional[datetime]:
-        return _to_naive_utc(v)
+        return _to_naive_moscow(v)
 
 
 class EventUpdate(BaseModel):
@@ -66,7 +66,7 @@ class EventUpdate(BaseModel):
     @field_validator('date', mode='after')
     @classmethod
     def normalize_date(cls, v: Optional[datetime]) -> Optional[datetime]:
-        return _to_naive_utc(v)
+        return _to_naive_moscow(v)
 
 
 class EventImageOut(BaseModel):

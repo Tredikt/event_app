@@ -4,6 +4,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import BigInteger, Boolean, Enum as SAEnum, Float, String
+from app.core.utils import moscow_now
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -32,7 +33,7 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     rating: Mapped[float] = mapped_column(Float, default=5.0, server_default="5.0")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     organized_events: Mapped[list["Event"]] = relationship("Event", back_populates="organizer")
     participations: Mapped[list["EventParticipant"]] = relationship("EventParticipant", back_populates="user")

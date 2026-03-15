@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom'
 import { MapPin, Users } from 'lucide-react'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import clsx from 'clsx'
 import type { EventList } from '@/types'
+import { fmtDate } from '@/utils/date'
 
 interface Props {
   event: EventList
@@ -20,7 +19,7 @@ function shortAddress(address: string): string {
 
 export default function EventCard({ event, compact = false, wide = false }: Props) {
   const fillPercent = (event.participants_count / event.capacity) * 100
-  const dateStr = event.date ? format(new Date(event.date), 'd MMM, HH:mm', { locale: ru }) : null
+  const dateStr = event.date ? fmtDate(event.date, 'd MMM, HH:mm') : null
 
   return (
     <Link

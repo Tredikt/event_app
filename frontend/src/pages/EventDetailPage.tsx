@@ -2,9 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare } from 'lucide-react'
 import { chatApi } from '@/api/chat'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { fmtDate, isMoscowPast } from '@/utils/date'
 import { eventsApi } from '@/api/events'
 import { notificationsApi } from '@/api/notifications'
 import type { AttendanceParticipant, Event, Participant /*, Review */ } from '@/types'  // RATING DISABLED
@@ -72,7 +71,7 @@ export default function EventDetailPage() {
     if (!event || !isAuthenticated || !user) return
     if (event.organizer.id === user.id) {
       eventsApi.getParticipants(event.id).then((r) => setParticipants(r.data))
-      const isPast = event.date ? new Date(event.date) < new Date() : false
+      const isPast = event.date ? isMoscowPast(event.date) : false
       if (isPast) {
         eventsApi.getAttendance(event.id).then((r) => setAttendance(r.data)).catch(() => {})
       }
@@ -111,7 +110,7 @@ export default function EventDetailPage() {
   }
 
   const isOrganizer = user?.id === event.organizer.id
-  const isPast = event.date ? new Date(event.date) < new Date() : false
+  const isPast = event.date ? isMoscowPast(event.date) : false
 
   const toggleAttended = (userId: number) => {
     setAttendance((prev) =>
@@ -542,7 +541,7 @@ export default function EventDetailPage() {
                       Дата
                     </div>
                     <span className="text-sm font-medium text-gray-900">
-                      {format(new Date(event.date), "d MMMM, HH:mm", { locale: ru })}
+                      {fmtDate(event.date, 'd MMMM, HH:mm')}
                     </span>
                   </div>
                 )}
@@ -639,7 +638,7 @@ export default function EventDetailPage() {
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             <span className="text-sm font-medium text-gray-900">{r.reviewer.first_name} {r.reviewer.last_name}</span>
-                            <span className="ml-2 text-xs text-gray-400">{format(new Date(r.created_at), 'd MMM yyyy', { locale: ru })}</span>
+                            <span className="ml-2 text-xs text-gray-400">{fmtDate(r.created_at, 'd MMM yyyy')}</span>
                           </div>
                           {user?.id === r.reviewer.id && (
                             <button onClick={() => handleDeleteReview(r.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
@@ -819,7 +818,7 @@ export default function EventDetailPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.user.first_name} {p.user.last_name}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-gray-400">{format(new Date(p.joined_at), 'd MMM, HH:mm', { locale: ru })}</span>
+                        <span className="text-xs text-gray-400">{fmtDate(p.joined_at, 'd MMM, HH:mm')}</span>
                         {p.user.telegram_username && (
                           <a
                             href={`https://t.me/${p.user.telegram_username}`}

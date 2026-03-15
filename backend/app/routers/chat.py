@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSessionLocal, get_db
+from app.core.utils import moscow_now
 from app.core.deps import get_current_user
 from app.core.security import decode_token
 from app.models.chat import Chat, ChatMessage
@@ -400,7 +401,7 @@ async def chat_ws(
                     sender_id=user_id,
                     text=text or None,
                     image_url=image_url,
-                    created_at=datetime.utcnow(),
+                    created_at=moscow_now(),
                 )
                 db.add(msg)
 

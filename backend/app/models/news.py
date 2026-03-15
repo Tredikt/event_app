@@ -5,6 +5,7 @@ from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import moscow_now
 
 
 class NewsPost(Base):
@@ -17,7 +18,7 @@ class NewsPost(Base):
     city: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     author_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     event_id: Mapped[int | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     author: Mapped["User | None"] = relationship("User")
     event: Mapped["Event | None"] = relationship("Event", foreign_keys=[event_id])

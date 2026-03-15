@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, /* Star, */ CalendarDays, Award } from 'lucide-react'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
+import { fmtDate } from '@/utils/date'
 import { usersApi, type OrganizerProfile /*, type ReviewOut, type EligibleEvent */ } from '@/api/users'  // RATING DISABLED
 import type { EventList } from '@/types'
 
@@ -186,7 +185,7 @@ export default function OrganizerPage() {
           )}
           <span className="flex items-center gap-1">
             <CalendarDays className="w-3 h-3" />
-            На сайте с {format(new Date(profile.created_at), 'MMMM yyyy', { locale: ru })}
+            На сайте с {fmtDate(profile.created_at, 'MMMM yyyy')}
           </span>
         </div>
 
@@ -236,7 +235,7 @@ export default function OrganizerPage() {
                   <p className="font-medium text-sm text-gray-900 truncate">{e.title}</p>
                   {e.date && (
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {format(new Date(e.date), 'd MMMM yyyy', { locale: ru })}
+                      {fmtDate(e.date, 'd MMMM yyyy')}
                     </p>
                   )}
                 </div>
@@ -321,7 +320,7 @@ export default function OrganizerPage() {
                     <span className="font-medium text-sm text-gray-900">{r.reviewer.first_name} {r.reviewer.last_name}</span>
                     <Stars value={r.rating} />
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{r.event_title} · {format(new Date(r.created_at), 'd MMM yyyy', { locale: ru })}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{r.event_title} · {fmtDate(r.created_at, 'd MMM yyyy')}</p>
                   {r.text && <p className="text-sm text-gray-700 mt-2 leading-relaxed">{r.text}</p>}
                 </div>
               </div>

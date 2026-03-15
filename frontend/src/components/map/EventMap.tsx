@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import type { EventList } from '@/types'
+import { fmtDate } from '@/utils/date'
 
 declare global {
   interface Window {
@@ -100,7 +99,7 @@ export default function EventMap({
       .filter((e) => e.latitude && e.longitude)
       .forEach((event) => {
         const color = event.is_full ? '#9CA3AF' : event.category.color
-        const dateStr = event.date ? format(new Date(event.date), 'd MMM, HH:mm', { locale: ru }) : ''
+        const dateStr = event.date ? fmtDate(event.date, 'd MMM, HH:mm') : ''
         const fullBadge = event.is_full
           ? ' • <span style="color:#EF4444;">Мест нет</span>'
           : ''

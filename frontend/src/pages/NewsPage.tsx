@@ -4,9 +4,8 @@ import { Search, MapPin, Trash2, X, ExternalLink, ChevronLeft, ChevronRight } fr
 import { newsApi, type NewsPost } from '@/api/news'
 import { useAuthStore } from '@/stores/authStore'
 import toast from 'react-hot-toast'
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import { getServerData } from '@/serverData'
+import { fmtDate } from '@/utils/date'
 
 const PREVIEW_LENGTH = 130
 
@@ -236,7 +235,7 @@ export default function NewsPage() {
                         {post.city}
                       </span>
                     )}
-                    <span>{format(new Date(post.created_at), 'd MMMM yyyy', { locale: ru })}</span>
+                    <span>{fmtDate(post.created_at, 'd MMMM yyyy')}</span>
                   </div>
                   {post.event_id && (
                     <Link

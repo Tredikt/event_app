@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import AsyncSessionLocal
 from app.core.config import settings
+from app.core.utils import moscow_now
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ async def _send_attendance_notifications():
     from app.models.event import Event, EventParticipant
     from app.services.notifications import notify_attendance_request
 
-    cutoff = datetime.utcnow() - timedelta(hours=ATTENDANCE_NOTIFY_DELAY_HOURS)
+    cutoff = moscow_now() - timedelta(hours=ATTENDANCE_NOTIFY_DELAY_HOURS)
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
@@ -67,7 +68,7 @@ async def _cancel_underfilled_events():
     from app.models.event import Event, EventParticipant, EventStatus
     from app.services.notifications import notify_event_cancelled
 
-    now = datetime.utcnow()
+    now = moscow_now()
     window_start = now
     window_end = now + timedelta(hours=6)
 
@@ -118,7 +119,7 @@ async def _send_event_reminders():
     from app.models.event import Event, EventSubscription
     from app.services.notifications import notify_event_reminder
 
-    now = datetime.utcnow()
+    now = moscow_now()
     window_start = now + timedelta(hours=1, minutes=50)
     window_end = now + timedelta(hours=2, minutes=10)
 
@@ -164,7 +165,7 @@ async def _complete_past_events():
     """Mark active non-tour events whose date has passed as completed."""
     from app.models.event import Event, EventStatus
 
-    now = datetime.utcnow()
+    now = moscow_now()
     async with AsyncSessionLocal() as db:
         result = await db.execute(
             select(Event)

@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.database import get_db
+from app.core.utils import moscow_now
 from app.core.deps import get_current_user
 from app.models.event import Event, EventParticipant, EventStatus
 # from app.models.review import Review  # RATING DISABLED
@@ -147,7 +148,7 @@ async def get_organizer_profile(
 #         ))
 #         .where(and_(
 #             Event.organizer_id == user_id,
-#             Event.date < datetime.utcnow(),
+#             Event.date < moscow_now(),
 #             Event.status != EventStatus.cancelled,
 #         ))
 #     )
@@ -176,7 +177,7 @@ async def get_organizer_events(
     tab: Optional[str] = "upcoming",
     db: AsyncSession = Depends(get_db),
 ):
-    now = datetime.utcnow()
+    now = moscow_now()
     from app.models.event import EventCategory
     if tab == "past":
         q = (
@@ -253,7 +254,7 @@ async def get_organizer_events(
 #     if not event or event.organizer_id != user_id:
 #         raise HTTPException(status_code=400, detail="Мероприятие не принадлежит этому организатору")
 #
-#     if event.date >= datetime.utcnow():
+#     if event.date >= moscow_now():
 #         raise HTTPException(status_code=400, detail="Можно оставить отзыв только о прошедших мероприятиях")
 #
 #     participation = await db.scalar(

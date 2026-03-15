@@ -3,14 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { MessageSquare } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { chatApi, type ChatListItem } from '@/api/chat'
+import { fmtChatTs } from '@/utils/date'
 
 function formatTime(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  return isToday
-    ? d.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString('ru', { day: 'numeric', month: 'short' })
+  return fmtChatTs(iso)
 }
 
 export default function ChatsPage() {

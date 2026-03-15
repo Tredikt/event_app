@@ -1,5 +1,4 @@
-import { format } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { fmtDate } from '@/utils/date'
 
 interface Props {
   value: string
@@ -7,30 +6,28 @@ interface Props {
   error?: boolean
 }
 
-/** Convert UTC ISO string from backend to local datetime-local input value */
-function utcToLocalInput(utcStr: string): string {
-  if (!utcStr) return ''
-  // If string has no timezone marker, treat as UTC by appending Z
-  const iso = utcStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(utcStr) ? utcStr : utcStr + 'Z'
+/** Convert Moscow ISO string from backend to datetime-local input value (Moscow time). */
+function moscowToInput(mskStr: string): string {
+  if (!mskStr) return ''
+  // Treat no-tz strings as Moscow time (+03:00)
+  const iso = mskStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(mskStr) ? mskStr : mskStr + '+03:00'
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return utcStr.substring(0, 16)
+  if (isNaN(d.getTime())) return mskStr.substring(0, 16)
+  // Display in Moscow timezone for datetime-local input
+  const msk = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }))
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${msk.getFullYear()}-${pad(msk.getMonth() + 1)}-${pad(msk.getDate())}T${pad(msk.getHours())}:${pad(msk.getMinutes())}`
 }
 
 export default function IosDatePicker({ value, onChange, error }: Props) {
-  const localValue = utcToLocalInput(value)
+  const localValue = moscowToInput(value)
 
-  const minDate = new Date()
-  minDate.setMinutes(minDate.getMinutes() - minDate.getTimezoneOffset())
-  const minStr = minDate.toISOString().substring(0, 16)
+  // Min = current Moscow time
+  const nowMsk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' }))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const minStr = `${nowMsk.getFullYear()}-${pad(nowMsk.getMonth() + 1)}-${pad(nowMsk.getDate())}T${pad(nowMsk.getHours())}:${pad(nowMsk.getMinutes())}`
 
-  let displayDate: string | null = null
-  if (localValue) {
-    try {
-      displayDate = format(new Date(localValue), "d MMMM yyyy, HH:mm", { locale: ru })
-    } catch { /* ignore */ }
-  }
+  const displayDate = localValue ? fmtDate(localValue + '+03:00', 'd MMMM yyyy, HH:mm') : null
 
   return (
     <div>

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.utils import moscow_now
 from app.core.deps import get_current_user
 from app.models.event import Event, EventParticipant, ParticipantStatus
 from app.models.review import Review
@@ -42,7 +43,7 @@ async def create_review(
     if event.organizer_id == current_user.id:
         raise HTTPException(status_code=400, detail="Нельзя оставить отзыв на своё мероприятие")
 
-    if not event.date or event.date > datetime.utcnow():
+    if not event.date or event.date > moscow_now():
         raise HTTPException(status_code=400, detail="Отзыв можно оставить только после окончания мероприятия")
 
     # Must have participated

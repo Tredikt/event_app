@@ -3,6 +3,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, T
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import moscow_now
 
 
 class Chat(Base):
@@ -11,8 +12,8 @@ class Chat(Base):
     id = Column(Integer, primary_key=True)
     user1_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     user2_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_message_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=moscow_now, nullable=False)
+    last_message_at = Column(DateTime, default=moscow_now, nullable=False)
 
     user1 = relationship("User", foreign_keys=[user1_id])
     user2 = relationship("User", foreign_keys=[user2_id])
@@ -27,7 +28,7 @@ class ChatMessage(Base):
     sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     text = Column(Text, nullable=True)
     image_url = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=moscow_now, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
 
     chat = relationship("Chat", back_populates="messages")

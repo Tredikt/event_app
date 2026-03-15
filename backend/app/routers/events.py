@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db, AsyncSessionLocal
 from app.core.deps import get_current_user
+from app.core.utils import moscow_now
 from app.models.event import (
     Event,
     EventAttendance,
@@ -75,7 +76,7 @@ async def list_events(
     # Для обычных мероприятий показываем только будущие; каталог не имеет дат
     if not catalog_mode:
         query = query.where(
-            or_(Event.date >= datetime.utcnow(), Event.date.is_(None))
+            or_(Event.date >= moscow_now(), Event.date.is_(None))
         ).where(Event.is_tour == False)  # noqa: E712
     if category_id:
         query = query.where(Event.category_id == category_id)
@@ -146,7 +147,7 @@ async def create_event(
     _notify_kwargs = dict(
         event_id=full_event.id,
         event_title=full_event.title,
-        event_date=full_event.date or datetime.utcnow(),
+        event_date=full_event.date or moscow_now(),
         event_address=full_event.address,
         category_id=full_event.category_id,
         category_name=full_event.category.name,
@@ -513,7 +514,7 @@ async def join_event(
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.status != EventStatus.active:
         raise HTTPException(status_code=400, detail="Мероприятие недоступно для записи")
-    if event.date and (event.date - datetime.utcnow()) < timedelta(hours=6):
+    if event.date and (event.date - moscow_now()) < timedelta(hours=6):
         raise HTTPException(status_code=400, detail="Регистрация закрыта (менее 6 часов до начала)")
     if event.is_full:
         raise HTTPException(status_code=400, detail="Мест больше нет")
@@ -962,7 +963,7 @@ async def request_attendance_notification(
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Только организатор")
-    if event.date > datetime.utcnow():
+    if event.date > moscow_now():
         raise HTTPException(status_code=400, detail="Мероприятие ещё не завершилось")
     if event.attendance_notified:
         return {"message": "Уведомление уже отправлено"}
@@ -1044,7 +1045,7 @@ async def mark_attendance(
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if event.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Только организатор")
-    if event.date > datetime.utcnow():
+    if event.date > moscow_now():
         raise HTTPException(status_code=400, detail="Мероприятие ещё не завершилось")
 
     # Load existing attendance records
@@ -1061,7 +1062,7 @@ async def mark_attendance(
                 event_id=event_id,
                 user_id=item.user_id,
                 attended=item.attended,
-                marked_at=datetime.utcnow(),
+                marked_at=moscow_now(),
             )
             db.add(record)
             # RATING DISABLED — no-show rating penalty commented out
@@ -1082,7 +1083,7 @@ async def mark_attendance(
             #             # was absent, now present → restore
             #             user.rating = min(10.0, round(user.rating + 0.1, 2))
             prev.attended = item.attended
-            prev.marked_at = datetime.utcnow()
+            prev.marked_at = moscow_now()
 
     await db.commit()
     return {"message": "Посещаемость сохранена"}

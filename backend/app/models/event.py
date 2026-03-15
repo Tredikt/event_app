@@ -7,6 +7,7 @@ from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Float, ForeignKey, Int
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.utils import moscow_now
 
 
 class EventStatus(str, enum.Enum):
@@ -57,7 +58,7 @@ class Event(Base):
     payment_details: Mapped[str | None] = mapped_column(Text, nullable=True)
     organizer_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("event_categories.id"))
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     organizer: Mapped["User"] = relationship("User", back_populates="organized_events")
     category: Mapped["EventCategory"] = relationship("EventCategory", back_populates="events")
@@ -93,7 +94,7 @@ class EventParticipant(Base):
     status: Mapped[ParticipantStatus] = mapped_column(
         SAEnum(ParticipantStatus), default=ParticipantStatus.registered
     )
-    joined_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    joined_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     event: Mapped["Event"] = relationship("Event", back_populates="participants")
     user: Mapped["User"] = relationship("User", back_populates="participations")
@@ -108,7 +109,7 @@ class EventSubscription(Base):
     notify_telegram: Mapped[bool] = mapped_column(Boolean, default=True)
     notify_email: Mapped[bool] = mapped_column(Boolean, default=False)
     reminder_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
     event: Mapped["Event"] = relationship("Event", back_populates="subscriptions")
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")

@@ -35,7 +35,9 @@ export default function EditEventPage() {
   }
 
   const toLocalInput = (iso: string) => {
-    const d = new Date(iso)
+    // Treat no-tz backend strings as Moscow time
+    const s = iso.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + '+03:00'
+    const d = new Date(new Date(s).toLocaleString('en-US', { timeZone: 'Europe/Moscow' }))
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }

@@ -110,7 +110,7 @@ function CityModal({ detectedCity, detecting, onConfirm, onSkip }: CityModalProp
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterData & { confirm_password: string }>()
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<RegisterData & { confirm_password: string }>()
   const password = watch('password')
   const [agreed, setAgreed] = useState(false)
   const [agreeError, setAgreeError] = useState(false)
@@ -123,9 +123,7 @@ export default function RegisterPage() {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
     setPhoneDigits(digits)
-    const { onChange } = register('phone', { required: 'Обязательно' })
-    const syntheticEvent = { target: { value: '+7' + digits } } as React.ChangeEvent<HTMLInputElement>
-    onChange(syntheticEvent)
+    setValue('phone', '+7' + digits, { shouldValidate: true })
   }
 
   const detectCity = (): Promise<string | null> => {
@@ -220,6 +218,11 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Номер телефона *</label>
+              {/* hidden input registers phone with react-hook-form */}
+              <input type="hidden" {...register('phone', {
+                required: 'Обязательно',
+                validate: (v) => (v && v.length >= 12) || 'Введите 10 цифр',
+              })} />
               <div className="flex items-center input p-0 overflow-hidden">
                 <span className="pl-3 pr-2 text-gray-700 font-medium select-none">+7</span>
                 <div className="w-px h-5 bg-gray-300" />
