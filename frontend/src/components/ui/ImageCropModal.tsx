@@ -63,7 +63,7 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
   const aspect = ASPECTS[aspectIdx].value
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-black/80 backdrop-blur-sm flex-shrink-0">
         <button type="button" onClick={onCancel} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
