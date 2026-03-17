@@ -34,48 +34,47 @@ export default function ChatPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // iOS keyboard: resize container to cover nav bar when keyboard open
+  // iOS keyboard: track visual viewport to position container correctly
   useEffect(() => {
     const el = containerRef.current
-    if (!el) return
+    const vv = window.visualViewport
+    if (!el || !vv) return
     const NAV_H = 56
 
-    const open = () => {
-      // Wait for keyboard animation (~300ms), then read actual viewport height
-      setTimeout(() => {
-        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight
-        el.style.height = `${h}px`
-        el.style.zIndex = '60'
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 300)
+    const applyOpen = () => {
+      el.style.top = `${vv.offsetTop}px`
+      el.style.height = `${vv.height}px`
+      el.style.zIndex = '60'
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
 
-    const close = () => {
+    const applyClose = () => {
+      el.style.top = '0px'
       el.style.height = `calc(100dvh - ${NAV_H}px)`
       el.style.zIndex = ''
     }
 
-    // visualViewport resize as additional signal (Android / Chrome)
-    const vv = window.visualViewport
     const onResize = () => {
-      if (!vv) return
       if (vv.height < window.innerHeight * 0.75) {
-        el.style.height = `${vv.height}px`
-        el.style.zIndex = '60'
+        applyOpen()
       } else {
-        close()
+        applyClose()
       }
     }
 
+    // focus/blur for reliable iOS trigger
     const input = inputRef.current
-    input?.addEventListener('focus', open)
-    input?.addEventListener('blur', close)
-    vv?.addEventListener('resize', onResize)
+    const onFocus = () => setTimeout(applyOpen, 300)
+    const onBlur = () => setTimeout(applyClose, 100)
+
+    input?.addEventListener('focus', onFocus)
+    input?.addEventListener('blur', onBlur)
+    vv.addEventListener('resize', onResize)
 
     return () => {
-      input?.removeEventListener('focus', open)
-      input?.removeEventListener('blur', close)
-      vv?.removeEventListener('resize', onResize)
+      input?.removeEventListener('focus', onFocus)
+      input?.removeEventListener('blur', onBlur)
+      vv.removeEventListener('resize', onResize)
     }
   }, [])
 
