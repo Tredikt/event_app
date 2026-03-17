@@ -5,7 +5,6 @@ import type { Category } from '@/types'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
-import IosDatePicker from '@/components/ui/IosDatePicker'
 import ImageCropModal from '@/components/ui/ImageCropModal'
 
 interface ExistingImage {
@@ -27,14 +26,36 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
   })
 
   const isCatalog = useWatch({ control, name: 'is_tour' })
-  const dateValue = useWatch({ control, name: 'date' })
   const priceValue = useWatch({ control, name: 'price' })
+
+  // Separate date/time state
+  const parseMskParts = (iso: string) => {
+    if (!iso) return { date: '', time: '' }
+    const d = new Date(iso.includes('+') || iso.endsWith('Z') ? iso : iso + '+03:00')
+    const msk = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }))
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return {
+      date: `${msk.getFullYear()}-${pad(msk.getMonth() + 1)}-${pad(msk.getDate())}`,
+      time: `${pad(msk.getHours())}:${pad(msk.getMinutes())}`,
+    }
+  }
+  const initDate = parseMskParts(defaultValues?.date || '')
+  const initEnd = parseMskParts(defaultValues?.end_time || '')
+  const [dateOnly, setDateOnly] = useState(initDate.date)
+  const [startTime, setStartTime] = useState(initDate.time)
+  const [endTimeStr, setEndTimeStr] = useState(initEnd.time)
+  const [dateError, setDateError] = useState(false)
+
   const DAYS = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
-  const dayOfWeek = dateValue ? DAYS[new Date(dateValue).getDay()] : ''
+  const dayOfWeek = dateOnly ? DAYS[new Date(dateOnly + 'T12:00:00').getDay()] : ''
+
+  const nowMsk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' }))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const todayMsk = `${nowMsk.getFullYear()}-${pad(nowMsk.getMonth() + 1)}-${pad(nowMsk.getDate())}`
 
   useEffect(() => {
-    if (isCatalog) setValue('date', '')
-  }, [isCatalog, setValue])
+    if (isCatalog) { setDateOnly(''); setStartTime(''); setEndTimeStr('') }
+  }, [isCatalog])
 
   const [mapPin, setMapPin] = useState<[number, number] | null>(
     defaultValues?.latitude && defaultValues?.longitude
@@ -167,14 +188,19 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
       data.price = null
       data.payment_details = null
     }
-    // datetime-local gives local time without timezone — convert to UTC ISO string
-    if (data.date) {
-      data.date = new Date(data.date).toISOString()
+    // Combine separate date/time fields → ISO (Moscow +03:00)
+    if (!isCatalog && (!dateOnly || !startTime)) {
+      setDateError(true)
+      return
+    }
+    setDateError(false)
+    if (dateOnly && startTime) {
+      data.date = new Date(`${dateOnly}T${startTime}:00+03:00`).toISOString()
     } else {
       delete (data as any).date
     }
-    if (data.end_time) {
-      data.end_time = new Date(data.end_time).toISOString()
+    if (dateOnly && endTimeStr) {
+      data.end_time = new Date(`${dateOnly}T${endTimeStr}:00+03:00`).toISOString()
     } else {
       data.end_time = null
     }
@@ -331,41 +357,55 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Date — only for regular events */}
+        {/* Date + start time + end time — only for regular events */}
         {!isCatalog && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Дата и время <span className="text-red-500">*</span></label>
-            <Controller
-              name="date"
-              control={control}
-              rules={{ required: 'Обязательное поле' }}
-              render={({ field }) => (
-                <IosDatePicker value={field.value || ''} onChange={field.onChange} error={!!errors.date} />
+          <>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Дата <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={dateOnly}
+                min={todayMsk}
+                onChange={(e) => { setDateOnly(e.target.value); setDateError(false) }}
+                className={`input w-full ${dateError && !dateOnly ? 'border-red-400 ring-1 ring-red-400' : ''}`}
+                style={{ colorScheme: 'light', fontSize: '16px' }}
+              />
+              {dayOfWeek && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="text-xs text-gray-500">День недели:</span>
+                  <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
+                </div>
               )}
-            />
-            {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
-            {dayOfWeek && (
-              <div className="mt-1.5 flex items-center gap-1.5">
-                <span className="text-xs text-gray-500">День недели:</span>
-                <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* End time */}
-        {!isCatalog && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Время окончания</label>
-            <Controller
-              name="end_time"
-              control={control}
-              render={({ field }) => (
-                <IosDatePicker value={field.value || ''} onChange={field.onChange} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Время начала <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); setDateError(false) }}
+                className={`input w-full ${dateError && !startTime ? 'border-red-400 ring-1 ring-red-400' : ''}`}
+                style={{ colorScheme: 'light', fontSize: '16px' }}
+              />
+              {dateError && (!dateOnly || !startTime) && (
+                <p className="text-xs text-red-500 mt-1">Укажите дату и время начала</p>
               )}
-            />
-            <p className="text-xs text-gray-400 mt-1">Для кнопки «Добавить в календарь»</p>
-          </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Время окончания</label>
+              <input
+                type="time"
+                value={endTimeStr}
+                onChange={(e) => setEndTimeStr(e.target.value)}
+                className="input w-full"
+                style={{ colorScheme: 'light', fontSize: '16px' }}
+              />
+              <p className="text-xs text-gray-400 mt-1">Для кнопки «Добавить в календарь»</p>
+            </div>
+          </>
         )}
 
         <div className={isCatalog ? 'sm:col-span-2 sm:max-w-[calc(50%-8px)]' : ''}>

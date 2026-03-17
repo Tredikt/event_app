@@ -65,8 +65,15 @@ export default function EventMap({
         }
         setLocating(false)
       },
-      () => setLocating(false),
-      { timeout: 8000 }
+      (err) => {
+        setLocating(false)
+        if (err.code === 1) {
+          alert('Разрешите доступ к геолокации в настройках браузера (Настройки → Safari → Геолокация)')
+        } else {
+          alert('Не удалось определить местоположение. Попробуйте ещё раз.')
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: false, maximumAge: 60000 }
     )
   }
 

@@ -545,17 +545,19 @@ export default function EventDetailPage() {
               {!isOrganizer && isAuthenticated && joined && event.date && (
                 <button
                   onClick={() => {
-                    const fmt = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
-                    // event dates stored as Moscow time (naive) — subtract 3h to get UTC
-                    const toUtcIso = (iso: string) => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString()
-                    const start = fmt(toUtcIso(event.date!))
-                    const end = event.end_time ? fmt(toUtcIso(event.end_time)) : fmt(toUtcIso(new Date(new Date(event.date!).getTime() + 2 * 60 * 60 * 1000).toISOString()))
+                    // Format Moscow datetime as YYYYMMDDTHHmmss (no Z) + ctz=Europe/Moscow
+                    const fmt = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d+/, '').replace('Z', '').slice(0, 15)
+                    const start = fmt(event.date!)
+                    const end = event.end_time
+                      ? fmt(event.end_time)
+                      : fmt(new Date(new Date(event.date! + '+03:00').getTime() + 2 * 60 * 60 * 1000).toISOString().replace('Z', ''))
                     const params = new URLSearchParams({
                       action: 'TEMPLATE',
                       text: event.title,
                       dates: `${start}/${end}`,
                       details: event.description,
                       location: event.address,
+                      ctz: 'Europe/Moscow',
                     })
                     window.open(`https://calendar.google.com/calendar/render?${params}`, '_blank')
                   }}
