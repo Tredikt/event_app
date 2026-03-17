@@ -34,28 +34,49 @@ export default function ChatPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // iOS keyboard: resize container to match visual viewport, cover nav bar when keyboard open
+  // iOS keyboard: resize container to cover nav bar when keyboard open
   useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const NAV_H = 56
     const el = containerRef.current
     if (!el) return
+    const NAV_H = 56
 
-    const update = () => {
-      const keyboardOpen = vv.height < window.innerHeight * 0.75
-      if (keyboardOpen) {
+    const open = () => {
+      // Wait for keyboard animation (~300ms), then read actual viewport height
+      setTimeout(() => {
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight
+        el.style.height = `${h}px`
+        el.style.zIndex = '60'
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 300)
+    }
+
+    const close = () => {
+      el.style.height = `calc(100dvh - ${NAV_H}px)`
+      el.style.zIndex = ''
+    }
+
+    // visualViewport resize as additional signal (Android / Chrome)
+    const vv = window.visualViewport
+    const onResize = () => {
+      if (!vv) return
+      if (vv.height < window.innerHeight * 0.75) {
         el.style.height = `${vv.height}px`
         el.style.zIndex = '60'
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       } else {
-        el.style.height = `calc(100dvh - ${NAV_H}px)`
-        el.style.zIndex = ''
+        close()
       }
     }
 
-    vv.addEventListener('resize', update)
-    return () => vv.removeEventListener('resize', update)
+    const input = inputRef.current
+    input?.addEventListener('focus', open)
+    input?.addEventListener('blur', close)
+    vv?.addEventListener('resize', onResize)
+
+    return () => {
+      input?.removeEventListener('focus', open)
+      input?.removeEventListener('blur', close)
+      vv?.removeEventListener('resize', onResize)
+    }
   }, [])
 
   // Load history + open WS
