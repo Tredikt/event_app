@@ -27,7 +27,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom navigation */}
-      <nav className={clsx("md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200", isChatPage && "translate-y-full")}>
+      <nav className={clsx("md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]", isChatPage && "hidden")}>
         <div className="flex items-stretch h-14">
 
           <NavLink

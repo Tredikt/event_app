@@ -148,8 +148,8 @@ export default function ChatPage() {
   return (
     <div
       ref={containerRef}
-      className="fixed inset-x-0 flex flex-col bg-white max-w-2xl mx-auto"
-      style={{ top: 0, height: '100dvh' }}
+      className="fixed inset-x-0 flex flex-col bg-white max-w-2xl mx-auto overflow-hidden"
+      style={{ top: 0, height: '100dvh', overscrollBehavior: 'none' }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shadow-sm flex-shrink-0">
