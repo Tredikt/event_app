@@ -19,11 +19,17 @@ export default function Layout() {
   }, [])
 
   useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const onResize = () => setKeyboardOpen(vv.height < window.innerHeight * 0.75)
-    vv.addEventListener('resize', onResize)
-    return () => vv.removeEventListener('resize', onResize)
+    const onFocusIn = (e: FocusEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') setKeyboardOpen(true)
+    }
+    const onFocusOut = () => setKeyboardOpen(false)
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      document.removeEventListener('focusout', onFocusOut)
+    }
   }, [])
 
   return (
