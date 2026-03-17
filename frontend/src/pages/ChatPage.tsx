@@ -163,7 +163,7 @@ export default function ChatPage() {
     <div
       ref={containerRef}
       className="fixed inset-x-0 flex flex-col bg-white max-w-2xl mx-auto overflow-hidden"
-      style={{ top: 0, height: '100dvh', overscrollBehavior: 'none' }}
+      style={{ top: 0, height: '100dvh', touchAction: 'none' }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shadow-sm flex-shrink-0">
@@ -181,7 +181,7 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <div data-scrollable className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+      <div data-scrollable className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ touchAction: 'pan-y' }}>
         {loading ? (
           <div className="flex justify-center py-8 text-gray-400 text-sm">Загрузка...</div>
         ) : messages.length === 0 ? (
