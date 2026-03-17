@@ -10,7 +10,7 @@ export default function Layout() {
   const { isAuthenticated, user, updateUser } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const isChatPage = /^\/chats\/.+/.test(location.pathname)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -18,19 +18,6 @@ export default function Layout() {
     }
   }, [])
 
-  useEffect(() => {
-    const onFocusIn = (e: FocusEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') setKeyboardOpen(true)
-    }
-    const onFocusOut = () => setKeyboardOpen(false)
-    document.addEventListener('focusin', onFocusIn)
-    document.addEventListener('focusout', onFocusOut)
-    return () => {
-      document.removeEventListener('focusin', onFocusIn)
-      document.removeEventListener('focusout', onFocusOut)
-    }
-  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -40,7 +27,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom navigation */}
-      <nav className={clsx("md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200", keyboardOpen && "translate-y-full")}>
+      <nav className={clsx("md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200", isChatPage && "translate-y-full")}>
         <div className="flex items-stretch h-14">
 
           <NavLink

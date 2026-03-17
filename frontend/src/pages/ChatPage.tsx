@@ -32,6 +32,31 @@ export default function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Prevent body scroll while chat is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  // Track visual viewport so container always fills the visible area above keyboard
+  useEffect(() => {
+    const vv = window.visualViewport
+    const el = containerRef.current
+    if (!vv || !el) return
+    const update = () => {
+      el.style.top = `${vv.offsetTop}px`
+      el.style.height = `${vv.height}px`
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   // Load history + open WS
   useEffect(() => {
@@ -122,7 +147,9 @@ export default function ChatPage() {
 
   return (
     <div
-      className="fixed inset-x-0 top-0 bottom-14 flex flex-col bg-white max-w-2xl mx-auto"
+      ref={containerRef}
+      className="fixed inset-x-0 flex flex-col bg-white max-w-2xl mx-auto"
+      style={{ top: 0, height: '100dvh' }}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shadow-sm flex-shrink-0">
