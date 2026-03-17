@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Newspaper, Plus, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -10,11 +10,20 @@ export default function Layout() {
   const { isAuthenticated, user, updateUser } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
       authApi.getMe().then((r) => updateUser(r.data)).catch(() => {})
     }
+  }, [])
+
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onResize = () => setKeyboardOpen(vv.height < window.innerHeight * 0.75)
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
   }, [])
 
   return (
@@ -25,7 +34,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)]">
+      <nav className={clsx("md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-1px_8px_rgba(0,0,0,0.06)] transition-transform duration-200", keyboardOpen && "translate-y-full")}>
         <div className="flex items-stretch h-14">
 
           <NavLink
