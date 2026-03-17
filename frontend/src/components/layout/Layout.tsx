@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Newspaper, Plus, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
