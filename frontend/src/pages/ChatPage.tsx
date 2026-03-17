@@ -63,9 +63,16 @@ export default function ChatPage() {
     }
 
     // focus/blur for reliable iOS trigger
+    // Cancel close if focus returns quickly (e.g. after sending a message)
+    let closeTimer: ReturnType<typeof setTimeout> | null = null
     const input = inputRef.current
-    const onFocus = () => setTimeout(applyOpen, 300)
-    const onBlur = () => setTimeout(applyClose, 100)
+    const onFocus = () => {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+      setTimeout(applyOpen, 300)
+    }
+    const onBlur = () => {
+      closeTimer = setTimeout(() => { closeTimer = null; applyClose() }, 250)
+    }
 
     input?.addEventListener('focus', onFocus)
     input?.addEventListener('blur', onBlur)
