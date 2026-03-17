@@ -36,13 +36,20 @@ export default function ChatPage() {
 
   // Prevent iOS elastic scroll outside the messages area
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
+    const html = document.documentElement
+    const body = document.body
+    const prev = { hPos: html.style.position, hH: html.style.height, bPos: body.style.position, bH: body.style.height, bOv: body.style.overflow }
+    html.style.position = 'fixed'; html.style.height = '100%'
+    body.style.position = 'fixed'; body.style.height = '100%'; body.style.overflow = 'hidden'
+
     const prevent = (e: TouchEvent) => {
       if (!(e.target as HTMLElement).closest('[data-scrollable]')) e.preventDefault()
     }
     document.addEventListener('touchmove', prevent, { passive: false })
+
     return () => {
-      document.body.style.overflow = ''
+      html.style.position = prev.hPos; html.style.height = prev.hH
+      body.style.position = prev.bPos; body.style.height = prev.bH; body.style.overflow = prev.bOv
       document.removeEventListener('touchmove', prevent)
     }
   }, [])
