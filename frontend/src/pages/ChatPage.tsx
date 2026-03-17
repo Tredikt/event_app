@@ -32,56 +32,6 @@ export default function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // iOS keyboard: track visual viewport to position container correctly
-  useEffect(() => {
-    const el = containerRef.current
-    const vv = window.visualViewport
-    if (!el || !vv) return
-    const NAV_H = 56
-
-    const applyOpen = () => {
-      el.style.top = `${vv.offsetTop}px`
-      el.style.height = `${vv.height}px`
-      el.style.zIndex = '60'
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-
-    const applyClose = () => {
-      el.style.top = '0px'
-      el.style.height = `calc(100dvh - ${NAV_H}px)`
-      el.style.zIndex = ''
-    }
-
-    const onResize = () => {
-      if (vv.height < window.innerHeight * 0.75) {
-        applyOpen()
-      } else {
-        applyClose()
-      }
-    }
-
-    const input = inputRef.current
-    const onFocus = () => {
-      if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
-      setTimeout(applyOpen, 300)
-    }
-    const onBlur = () => {
-      closeTimerRef.current = setTimeout(() => { closeTimerRef.current = null; applyClose() }, 300)
-    }
-
-    input?.addEventListener('focus', onFocus)
-    input?.addEventListener('blur', onBlur)
-    vv.addEventListener('resize', onResize)
-
-    return () => {
-      input?.removeEventListener('focus', onFocus)
-      input?.removeEventListener('blur', onBlur)
-      vv.removeEventListener('resize', onResize)
-    }
-  }, [])
 
   // Load history + open WS
   useEffect(() => {
@@ -172,9 +122,7 @@ export default function ChatPage() {
 
   return (
     <div
-      ref={containerRef}
-      className="fixed left-0 right-0 flex flex-col bg-white max-w-2xl mx-auto"
-      style={{ top: 0, height: 'calc(100dvh - 56px)' }}
+      className="fixed inset-x-0 top-0 bottom-14 flex flex-col bg-white max-w-2xl mx-auto"
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-white shadow-sm flex-shrink-0">
@@ -295,10 +243,7 @@ export default function ChatPage() {
           className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button
-          onClick={() => {
-            if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
-            send()
-          }}
+          onClick={send}
           disabled={!text.trim() && !pendingImage}
           className="w-10 h-10 rounded-full bg-blue-700 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors"
         >
