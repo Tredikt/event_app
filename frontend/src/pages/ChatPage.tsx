@@ -34,6 +34,30 @@ export default function ChatPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // iOS keyboard: resize container to match visual viewport, cover nav bar when keyboard open
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const NAV_H = 56
+    const el = containerRef.current
+    if (!el) return
+
+    const update = () => {
+      const keyboardOpen = vv.height < window.innerHeight * 0.75
+      if (keyboardOpen) {
+        el.style.height = `${vv.height}px`
+        el.style.zIndex = '60'
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      } else {
+        el.style.height = `calc(100dvh - ${NAV_H}px)`
+        el.style.zIndex = ''
+      }
+    }
+
+    vv.addEventListener('resize', update)
+    return () => vv.removeEventListener('resize', update)
+  }, [])
+
   // Load history + open WS
   useEffect(() => {
     if (!id || !token) return
