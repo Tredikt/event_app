@@ -33,7 +33,6 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const keyboardOpenRef = useRef(false)
 
   // iOS keyboard: track visual viewport to position container correctly
   useEffect(() => {
@@ -69,11 +68,10 @@ export default function ChatPage() {
     const input = inputRef.current
     const onFocus = () => {
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
-      keyboardOpenRef.current = true
       setTimeout(applyOpen, 300)
     }
     const onBlur = () => {
-      closeTimer = setTimeout(() => { closeTimer = null; keyboardOpenRef.current = false; applyClose() }, 250)
+      closeTimer = setTimeout(() => { closeTimer = null; applyClose() }, 250)
     }
 
     input?.addEventListener('focus', onFocus)
@@ -148,7 +146,6 @@ export default function ChatPage() {
     wsRef.current.send(JSON.stringify({ text: trimmed || undefined, image_url: pendingImage || undefined }))
     setText('')
     setPendingImage(null)
-    if (keyboardOpenRef.current) inputRef.current?.focus()
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
