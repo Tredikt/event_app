@@ -541,6 +541,31 @@ export default function EventDetailPage() {
                 </div>
               )}
 
+              {/* Add to Google Calendar — shown when joined and event has date */}
+              {!isOrganizer && isAuthenticated && joined && event.date && (
+                <button
+                  onClick={() => {
+                    const fmt = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')
+                    // event dates stored as Moscow time (naive) — subtract 3h to get UTC
+                    const toUtcIso = (iso: string) => new Date(new Date(iso).getTime() - 3 * 60 * 60 * 1000).toISOString()
+                    const start = fmt(toUtcIso(event.date!))
+                    const end = event.end_time ? fmt(toUtcIso(event.end_time)) : fmt(toUtcIso(new Date(new Date(event.date!).getTime() + 2 * 60 * 60 * 1000).toISOString()))
+                    const params = new URLSearchParams({
+                      action: 'TEMPLATE',
+                      text: event.title,
+                      dates: `${start}/${end}`,
+                      details: event.description,
+                      location: event.address,
+                    })
+                    window.open(`https://calendar.google.com/calendar/render?${params}`, '_blank')
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-green-50 border border-green-200 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors mb-2"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 18H5V9h14v12zm0-14H5V5h14v2z"/></svg>
+                  Добавить в Google Календарь
+                </button>
+              )}
+
               {/* Contact organizer — shown when joined */}
               {!isOrganizer && isAuthenticated && joined && (
                 <div className="flex gap-2 mb-4">

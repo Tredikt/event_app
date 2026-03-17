@@ -173,6 +173,11 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
     } else {
       delete (data as any).date
     }
+    if (data.end_time) {
+      data.end_time = new Date(data.end_time).toISOString()
+    } else {
+      data.end_time = null
+    }
     return onSubmit(data, newFiles, removedIds)
   })
 
@@ -345,6 +350,21 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
                 <span className="text-xs font-semibold text-blue-700">{dayOfWeek}</span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* End time */}
+        {!isCatalog && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Время окончания</label>
+            <Controller
+              name="end_time"
+              control={control}
+              render={({ field }) => (
+                <IosDatePicker value={field.value || ''} onChange={field.onChange} />
+              )}
+            />
+            <p className="text-xs text-gray-400 mt-1">Для кнопки «Добавить в календарь»</p>
           </div>
         )}
 

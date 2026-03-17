@@ -44,6 +44,7 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     capacity: Mapped[int] = mapped_column(Integer)
     participants_count: Mapped[int] = mapped_column(Integer, default=0)
     address: Mapped[str] = mapped_column(String(500))

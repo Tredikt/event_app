@@ -32,6 +32,7 @@ class EventCreate(BaseModel):
     title: str
     description: str
     date: Optional[datetime] = None  # None для каталожных позиций (is_tour=True)
+    end_time: Optional[datetime] = None
     capacity: int
     min_participants: Optional[int] = None
     address: str
@@ -42,7 +43,7 @@ class EventCreate(BaseModel):
     price: Optional[float] = None
     payment_details: Optional[str] = None
 
-    @field_validator('date', mode='after')
+    @field_validator('date', 'end_time', mode='after')
     @classmethod
     def normalize_date(cls, v: Optional[datetime]) -> Optional[datetime]:
         return _to_naive_moscow(v)
@@ -52,6 +53,7 @@ class EventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     date: Optional[datetime] = None
+    end_time: Optional[datetime] = None
     capacity: Optional[int] = None
     min_participants: Optional[int] = None
     address: Optional[str] = None
@@ -63,7 +65,7 @@ class EventUpdate(BaseModel):
     price: Optional[float] = None
     payment_details: Optional[str] = None
 
-    @field_validator('date', mode='after')
+    @field_validator('date', 'end_time', mode='after')
     @classmethod
     def normalize_date(cls, v: Optional[datetime]) -> Optional[datetime]:
         return _to_naive_moscow(v)
@@ -82,6 +84,7 @@ class EventOut(BaseModel):
     title: str
     description: str
     date: Optional[datetime] = None
+    end_time: Optional[datetime] = None
     capacity: int
     min_participants: Optional[int] = None
     participants_count: int

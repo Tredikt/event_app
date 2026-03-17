@@ -39,6 +39,7 @@ export interface Event {
   title: string
   description: string
   date: string | null
+  end_time: string | null
   capacity: number
   min_participants: number | null
   participants_count: number

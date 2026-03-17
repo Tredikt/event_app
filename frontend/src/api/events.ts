@@ -18,6 +18,7 @@ export interface CreateEventData {
   title: string
   description: string
   date: string
+  end_time?: string | null
   capacity: number
   min_participants?: number | null
   address: string
