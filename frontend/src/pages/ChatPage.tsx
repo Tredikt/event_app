@@ -267,7 +267,7 @@ export default function ChatPage() {
           onKeyDown={handleKey}
           onFocus={() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)}
           placeholder="Сообщение..."
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-base focus:outline-none"
         />
         <button
           onClick={send}
