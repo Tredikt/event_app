@@ -297,6 +297,7 @@ export default function ChatPage() {
           className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button
+          onPointerDown={(e) => e.preventDefault()}
           onClick={send}
           disabled={!text.trim() && !pendingImage}
           className="w-10 h-10 rounded-full bg-blue-700 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors"
