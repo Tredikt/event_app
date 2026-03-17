@@ -33,6 +33,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // iOS keyboard: track visual viewport to position container correctly
   useEffect(() => {
@@ -62,16 +63,13 @@ export default function ChatPage() {
       }
     }
 
-    // focus/blur for reliable iOS trigger
-    // Cancel close if focus returns quickly (e.g. after sending a message)
-    let closeTimer: ReturnType<typeof setTimeout> | null = null
     const input = inputRef.current
     const onFocus = () => {
-      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null }
+      if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
       setTimeout(applyOpen, 300)
     }
     const onBlur = () => {
-      closeTimer = setTimeout(() => { closeTimer = null; applyClose() }, 250)
+      closeTimerRef.current = setTimeout(() => { closeTimerRef.current = null; applyClose() }, 300)
     }
 
     input?.addEventListener('focus', onFocus)
@@ -297,8 +295,10 @@ export default function ChatPage() {
           className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button
-          onPointerDown={(e) => e.preventDefault()}
-          onClick={send}
+          onClick={() => {
+            if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
+            send()
+          }}
           disabled={!text.trim() && !pendingImage}
           className="w-10 h-10 rounded-full bg-blue-700 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors"
         >
