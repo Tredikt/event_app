@@ -34,10 +34,17 @@ export default function ChatPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Prevent body scroll while chat is open
+  // Prevent iOS elastic scroll outside the messages area
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    const prevent = (e: TouchEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-scrollable]')) e.preventDefault()
+    }
+    document.addEventListener('touchmove', prevent, { passive: false })
+    return () => {
+      document.body.style.overflow = ''
+      document.removeEventListener('touchmove', prevent)
+    }
   }, [])
 
   // Track visual viewport so container always fills the visible area above keyboard
@@ -167,7 +174,7 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+      <div data-scrollable className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {loading ? (
           <div className="flex justify-center py-8 text-gray-400 text-sm">Загрузка...</div>
         ) : messages.length === 0 ? (
