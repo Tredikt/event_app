@@ -24,6 +24,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [partnerName, setPartnerName] = useState('')
   const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null)
+  const [partnerId, setPartnerId] = useState<number | null>(null)
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -89,6 +90,7 @@ export default function ChatPage() {
       if (found) {
         setPartnerName(`${found.partner.first_name} ${found.partner.last_name}`.trim())
         setPartnerAvatar(found.partner.avatar_url)
+        setPartnerId(found.partner.id)
       }
     })
 
@@ -170,14 +172,19 @@ export default function ChatPage() {
         <button onClick={() => navigate('/chats')} className="text-gray-500 hover:text-gray-800 transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        {partnerAvatar ? (
-          <img src={partnerAvatar} alt="" className="w-9 h-9 rounded-full object-cover" />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-            {partnerName[0] ?? '?'}
-          </div>
-        )}
-        <span className="font-semibold text-gray-900 text-sm">{partnerName || '...'}</span>
+        <button
+          onClick={() => partnerId && navigate(`/users/${partnerId}`)}
+          className="flex items-center gap-3 min-w-0"
+        >
+          {partnerAvatar ? (
+            <img src={partnerAvatar} alt="" className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold flex-shrink-0">
+              {partnerName[0] ?? '?'}
+            </div>
+          )}
+          <span className="font-semibold text-gray-900 text-sm truncate">{partnerName || '...'}</span>
+        </button>
       </div>
 
       {/* Messages */}

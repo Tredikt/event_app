@@ -42,7 +42,7 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
   const initDate = parseMskParts(defaultValues?.date || '')
   const initEnd = parseMskParts(defaultValues?.end_time || '')
   const [dateOnly, setDateOnly] = useState(initDate.date)
-  const [startTime, setStartTime] = useState(initDate.time)
+  const [startTime, setStartTime] = useState(initDate.time || '12:00')
   const [endTimeStr, setEndTimeStr] = useState(initEnd.time)
   const [dateError, setDateError] = useState(false)
 

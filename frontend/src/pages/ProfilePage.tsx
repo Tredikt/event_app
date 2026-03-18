@@ -39,6 +39,7 @@ export default function ProfilePage() {
     defaultValues: {
       first_name: user?.first_name,
       last_name: user?.last_name,
+      bio: user?.bio ?? '',
     },
   })
 
@@ -137,6 +138,15 @@ export default function ProfilePage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Фамилия</label>
               <input {...register('last_name')} className="input" />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">О себе</label>
+            <textarea
+              {...register('bio')}
+              className="input resize-none"
+              rows={4}
+              placeholder="Расскажите о себе, своих интересах, направлениях деятельности..."
+            />
           </div>
           <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
             {isSubmitting ? <Loader className="w-4 h-4 animate-spin" /> : 'Сохранить'}

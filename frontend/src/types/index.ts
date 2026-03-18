@@ -13,6 +13,7 @@ export interface UserPublic {
   id: number
   first_name: string
   last_name: string
+  bio?: string | null
   gender: Gender
   avatar_url: string | null
   telegram_username: string | null

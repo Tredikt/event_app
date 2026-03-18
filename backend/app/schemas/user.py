@@ -41,6 +41,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     gender: Optional[GenderEnum] = None
     city: Optional[str] = None
+    bio: Optional[str] = None
 
     @field_validator("email", mode="before")
     @classmethod
@@ -56,6 +57,7 @@ class UserPublic(BaseModel):
     avatar_url: Optional[str] = None
     telegram_username: Optional[str] = None
     rating: float = 5.0
+    bio: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -66,6 +68,7 @@ class UserProfile(UserPublic):
     telegram_id: Optional[int] = None
     is_admin: bool = False
     city: Optional[str] = None
+    bio: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

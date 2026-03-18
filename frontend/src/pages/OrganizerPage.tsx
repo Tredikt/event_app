@@ -8,6 +8,24 @@ import { newsApi, type NewsPost } from '@/api/news'
 import { useAuthStore } from '@/stores/authStore'
 import type { EventList } from '@/types'
 
+const PREVIEW_LENGTH = 130
+
+function PostContent({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const isLong = content.length > PREVIEW_LENGTH
+  if (!isLong || expanded) {
+    return <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">{content}</p>
+  }
+  return (
+    <div>
+      <p className="text-xs text-gray-500 leading-relaxed">{content.slice(0, PREVIEW_LENGTH)}...</p>
+      <button onClick={() => setExpanded(true)} className="text-xs text-blue-600 font-medium mt-0.5">
+        Показать ещё
+      </button>
+    </div>
+  )
+}
+
 export default function OrganizerPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -165,6 +183,12 @@ export default function OrganizerPage() {
             На сайте с {fmtDate(profile.created_at, 'MMMM yyyy')}
           </span>
         </div>
+
+        {profile.bio && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{profile.bio}</p>
+          </div>
+        )}
       </div>
 
       {/* Events section */}
@@ -318,7 +342,7 @@ export default function OrganizerPage() {
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">{post.content}</p>
+                    <PostContent content={post.content} />
                     <p className="text-xs text-gray-400">{fmtDate(post.created_at, 'd MMMM yyyy')}</p>
                   </div>
                 </div>

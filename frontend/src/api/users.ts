@@ -9,6 +9,7 @@ export interface OrganizerProfile {
   telegram_username?: string
   rating: number
   city?: string
+  bio?: string | null
   created_at: string
   events_count: number
   reviews_count: number
