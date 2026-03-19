@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, CalendarDays, Award, Plus, Trash2, ImageIcon, Loader } from 'lucide-react'
+import { ArrowLeft, MapPin, CalendarDays, Award, Plus, Trash2, ImageIcon, Loader, Flag } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { fmtDate } from '@/utils/date'
 import { usersApi, type OrganizerProfile } from '@/api/users'
 import { newsApi, type NewsPost } from '@/api/news'
+import { reportsApi } from '@/api/reports'
 import { useAuthStore } from '@/stores/authStore'
 import type { EventList } from '@/types'
 
@@ -40,6 +41,12 @@ export default function OrganizerPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<EventList[]>([])
   const [pastEvents, setPastEvents] = useState<EventList[]>([])
   const [eventsLoading, setEventsLoading] = useState(false)
+
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportReasons, setReportReasons] = useState<string[]>([])
+  const [reportReason, setReportReason] = useState('')
+  const [reportComment, setReportComment] = useState('')
+  const [reportSubmitting, setReportSubmitting] = useState(false)
 
   const [posts, setPosts] = useState<NewsPost[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
@@ -138,6 +145,26 @@ export default function OrganizerPage() {
     )
   }
 
+  const handleReportSubmit = async () => {
+    if (!reportReason) return
+    setReportSubmitting(true)
+    try {
+      await reportsApi.create({
+        reported_user_id: userId,
+        reason: reportReason,
+        comment: reportComment.trim() || undefined,
+      })
+      toast.success('Жалоба отправлена')
+      setShowReportModal(false)
+      setReportReason('')
+      setReportComment('')
+    } catch {
+      toast.error('Ошибка при отправке жалобы')
+    } finally {
+      setReportSubmitting(false)
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 space-y-4 pb-24">
       <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
@@ -187,6 +214,24 @@ export default function OrganizerPage() {
         {profile.bio && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{profile.bio}</p>
+          </div>
+        )}
+
+        {!isOwn && user && (
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <button
+              onClick={async () => {
+                if (reportReasons.length === 0) {
+                  const { data } = await reportsApi.getReasons()
+                  setReportReasons(data)
+                }
+                setShowReportModal(true)
+              }}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <Flag className="w-3 h-3" />
+              Пожаловаться
+            </button>
           </div>
         )}
       </div>
@@ -351,6 +396,52 @@ export default function OrganizerPage() {
           </div>
         )}
       </div>
+
+      {/* Report modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 space-y-4">
+            <h3 className="font-semibold text-gray-900">Жалоба на пользователя</h3>
+            <div className="space-y-2">
+              {reportReasons.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setReportReason(r)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm border transition-colors ${
+                    reportReason === r
+                      ? 'border-red-400 bg-red-50 text-red-700 font-medium'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={reportComment}
+              onChange={(e) => setReportComment(e.target.value)}
+              placeholder="Дополнительный комментарий (необязательно)"
+              className="input w-full resize-none text-sm"
+              rows={3}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowReportModal(false); setReportReason(''); setReportComment('') }}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleReportSubmit}
+                disabled={!reportReason || reportSubmitting}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {reportSubmitting ? 'Отправка...' : 'Отправить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

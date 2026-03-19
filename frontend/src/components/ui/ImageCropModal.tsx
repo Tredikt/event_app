@@ -10,6 +10,7 @@ interface Props {
 }
 
 const ASPECTS = [
+  { label: 'Оригинал', value: 'original' as const },
   { label: 'Своб.', value: undefined },
   { label: '1:1', value: 1 },
   { label: '4:3', value: 4 / 3 },
@@ -45,22 +46,30 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const isOriginal = ASPECTS[aspectIdx].value === 'original'
+
   const onCropComplete = useCallback((_: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels)
   }, [])
 
   const handleConfirm = async () => {
-    if (!croppedAreaPixels) return
     setLoading(true)
     try {
-      const blob = await getCroppedBlob(src, croppedAreaPixels)
-      onConfirm(blob)
+      if (isOriginal) {
+        const res = await fetch(src)
+        const blob = await res.blob()
+        onConfirm(blob)
+      } else {
+        if (!croppedAreaPixels) return
+        const blob = await getCroppedBlob(src, croppedAreaPixels)
+        onConfirm(blob)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const aspect = ASPECTS[aspectIdx].value
+  const aspect = isOriginal ? undefined : (ASPECTS[aspectIdx].value as number | undefined)
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black">
@@ -81,22 +90,28 @@ export default function ImageCropModal({ src, onConfirm, onCancel }: Props) {
       </div>
 
       {/* Cropper */}
-      <div className="relative flex-1">
-        <Cropper
-          image={src}
-          crop={crop}
-          zoom={zoom}
-          aspect={aspect}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-          showGrid={false}
-          restrictPosition={false}
-          style={{
-            containerStyle: { background: '#000' },
-            cropAreaStyle: { border: '2px solid white', borderRadius: '12px' },
-          }}
-        />
+      <div className="relative flex-1 overflow-hidden">
+        {isOriginal ? (
+          <div className="w-full h-full flex items-center justify-center bg-black overflow-auto">
+            <img src={src} alt="" className="max-w-full max-h-full object-contain" />
+          </div>
+        ) : (
+          <Cropper
+            image={src}
+            crop={crop}
+            zoom={zoom}
+            aspect={aspect}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+            showGrid={false}
+            restrictPosition={false}
+            style={{
+              containerStyle: { background: '#000' },
+              cropAreaStyle: { border: '2px solid white', borderRadius: '12px' },
+            }}
+          />
+        )}
       </div>
 
       {/* Aspect ratio selector */}

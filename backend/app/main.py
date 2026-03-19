@@ -32,6 +32,7 @@ from app.models import (  # noqa: F401 — register all models with Base.metadat
 )
 from app.routers import auth, events, notifications, telegram, news, users  # , reviews  # RATING DISABLED
 from app.routers import chat as chat_router
+from app.routers import reports as reports_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -254,6 +255,7 @@ app.include_router(news.router)
 app.include_router(users.router)
 # app.include_router(reviews.router)  # RATING DISABLED
 app.include_router(chat_router.router)
+app.include_router(reports_router.router)
 
 
 @app.get("/health")

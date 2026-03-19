@@ -604,6 +604,7 @@ export default function EventDetailPage() {
                     </div>
                     <span className="text-sm font-medium text-gray-900">
                       {fmtDate(event.date, 'd MMMM, HH:mm')}
+                      {event.end_time && `\u2013${fmtDate(event.end_time, 'HH:mm')}`}
                     </span>
                   </div>
                 )}

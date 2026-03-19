@@ -189,7 +189,7 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
       data.payment_details = null
     }
     // Combine separate date/time fields → ISO (Moscow +03:00)
-    if (!isCatalog && (!dateOnly || !startTime)) {
+    if (!isCatalog && (!dateOnly || !startTime || !endTimeStr)) {
       setDateError(true)
       return
     }
@@ -395,15 +395,14 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Время окончания</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Время окончания <span className="text-red-500">*</span></label>
               <input
                 type="time"
                 value={endTimeStr}
                 onChange={(e) => setEndTimeStr(e.target.value)}
-                className="input w-full"
+                className={`input w-full ${dateError && !endTimeStr ? 'border-red-400' : ''}`}
                 style={{ colorScheme: 'light', fontSize: '16px' }}
               />
-              <p className="text-xs text-gray-400 mt-1">Для кнопки «Добавить в календарь»</p>
             </div>
           </>
         )}

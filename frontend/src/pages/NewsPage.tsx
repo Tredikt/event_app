@@ -22,7 +22,6 @@ function NewsCarousel({ images, fallback }: { images: string[]; fallback?: strin
   return (
     <div
       className="relative w-full overflow-hidden select-none"
-      style={{ maxHeight: '280px' }}
       onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
       onTouchEnd={(e) => {
         if (touchStartX.current === null || all.length <= 1) return
@@ -35,8 +34,7 @@ function NewsCarousel({ images, fallback }: { images: string[]; fallback?: strin
         key={idx}
         src={all[idx]}
         alt=""
-        className="w-full object-cover"
-        style={{ maxHeight: '280px' }}
+        className="w-full h-auto"
       />
 
       {all.length > 1 && (
