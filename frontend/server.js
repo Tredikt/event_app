@@ -55,11 +55,46 @@ async function fetchInitialData(url) {
       const news = await fetch(`${base}/news`).then(r => r.ok ? r.json() : [])
       return { news }
     }
+
+    const eventMatch = pathname.match(/^\/events\/(\d+)$/)
+    if (eventMatch) {
+      const event = await fetch(`${base}/events/${eventMatch[1]}`).then(r => r.ok ? r.json() : null)
+      return { event }
+    }
   } catch (e) {
     console.error('Failed to fetch initial data:', e.message)
   }
 
   return {}
+}
+
+function buildOgMeta(url, data) {
+  const SITE_URL = process.env.SITE_URL || 'https://mvp.gearsofficial.ru'
+  const defaultMeta = `
+    <meta property="og:site_name" content="Повод" />
+    <meta property="og:url" content="${SITE_URL}${url}" />
+  `
+
+  if (data.event) {
+    const e = data.event
+    const image = (e.images && e.images.length > 0 ? e.images[0].image_url : null) || e.image_url || ''
+    const desc = e.description ? e.description.slice(0, 200).replace(/"/g, '&quot;') : 'Мероприятие на платформе Повод'
+    const title = (e.title || 'Мероприятие').replace(/"/g, '&quot;')
+    return `
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${desc}" />
+    ${image ? `<meta property="og:image" content="${image}" />` : ''}
+    <meta property="og:url" content="${SITE_URL}${url}" />
+    <meta property="og:site_name" content="Повод" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title}" />
+    <meta name="twitter:description" content="${desc}" />
+    ${image ? `<meta name="twitter:image" content="${image}" />` : ''}
+    `
+  }
+
+  return defaultMeta
 }
 
 // SSR for all HTML requests
@@ -70,9 +105,10 @@ app.get('*', async (req, res) => {
 
     // Inject initial data as JSON for client hydration
     const dataScript = `<script>window.__INITIAL_DATA__=${JSON.stringify(data)}</script>`
+    const ogMeta = buildOgMeta(req.originalUrl, data)
     const html = template
       .replace('<!--app-html-->', appHtml)
-      .replace('</head>', `${dataScript}</head>`)
+      .replace('</head>', `${ogMeta}${dataScript}</head>`)
 
     res.status(200).set('Content-Type', 'text/html').send(html)
   } catch (e) {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare } from 'lucide-react'
+import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare, Download } from 'lucide-react'
 import { chatApi } from '@/api/chat'
 import toast from 'react-hot-toast'
 import { fmtDate, isMoscowPast } from '@/utils/date'
@@ -412,7 +412,7 @@ export default function EventDetailPage() {
         <div className="lg:col-span-2 space-y-4">
           <div className="card overflow-hidden">
             <div
-              className="relative h-56 bg-gray-100 overflow-hidden select-none"
+              className="relative bg-gray-100 overflow-hidden select-none"
               onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
               onTouchEnd={(e) => {
                 if (touchStartX.current === null || carouselTotal <= 1) return
@@ -426,10 +426,10 @@ export default function EventDetailPage() {
                   key={carouselIndex}
                   src={carouselImages[carouselIndex]}
                   alt={event.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-7xl" style={{ background: `${event.category.color}15` }}>
+                <div className="w-full h-48 flex items-center justify-center text-7xl" style={{ background: `${event.category.color}15` }}>
                   {event.category.icon}
                 </div>
               )}
@@ -462,6 +462,20 @@ export default function EventDetailPage() {
                     ))}
                   </div>
                 </>
+              )}
+
+              {carouselImages.length > 0 && (
+                <a
+                  href={carouselImages[carouselIndex]}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors"
+                  aria-label="Скачать фото"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Download className="w-4 h-4" />
+                </a>
               )}
 
               <div className="absolute top-3 left-3">
