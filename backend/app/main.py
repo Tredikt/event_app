@@ -2,8 +2,13 @@
 
 import asyncio
 import logging
+import mimetypes
 import os
 from contextlib import asynccontextmanager
+
+# Register modern image formats not present in older mimetypes databases
+mimetypes.add_type("image/avif", ".avif")
+mimetypes.add_type("image/webp", ".webp")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

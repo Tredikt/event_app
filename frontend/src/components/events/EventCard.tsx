@@ -107,18 +107,27 @@ export default function EventCard({ event, compact = false, wide = false }: Prop
 
         {/* Footer: participants + progress */}
         <div className="mt-auto pt-1">
-          <div className="flex items-center gap-1 text-[11px] mb-1">
-            <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
-            <span className={clsx('font-medium', event.is_full ? 'text-red-500' : fillPercent >= 50 ? 'text-orange-500' : 'text-blue-700')}>
-              {participantsLabel(event.participants_count, event.capacity, event.is_full)}
-            </span>
-          </div>
-          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-blue-600')}
-              style={{ width: `${Math.min(fillPercent, 100)}%` }}
-            />
-          </div>
+          {event.is_template ? (
+            <div className="flex items-center gap-1 text-[11px]">
+              <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              <span className="font-medium text-blue-700">Создай мероприятие</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-1 text-[11px] mb-1">
+                <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                <span className={clsx('font-medium', event.is_full ? 'text-red-500' : fillPercent >= 50 ? 'text-orange-500' : 'text-blue-700')}>
+                  {participantsLabel(event.participants_count, event.capacity, event.is_full)}
+                </span>
+              </div>
+              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className={clsx('h-full rounded-full transition-all', event.is_full ? 'bg-red-400' : 'bg-blue-600')}
+                  style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </Link>
