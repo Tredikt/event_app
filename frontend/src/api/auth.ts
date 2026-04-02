@@ -33,4 +33,8 @@ export const authApi = {
   generateTelegramLink: () =>
     api.post<{ token: string; link: string }>('/telegram/generate-link-token'),
   unlinkTelegram: () => api.delete('/telegram/unlink'),
+  submitVerification: (data: { legal_type: string; legal_name: string; inn: string; contact_info?: string }) =>
+    api.post('/auth/me/verification', data),
+  getVerification: () =>
+    api.get<{ legal_type: string; legal_name: string; inn: string; contact_info?: string; created_at: string } | null>('/auth/me/verification'),
 }

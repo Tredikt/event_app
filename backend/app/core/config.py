@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # Comma-separated telegram_id list of admins, e.g. "123456789,987654321"
     ADMIN_TELEGRAM_IDS: str = ""
 
+    # Admin account seed credentials
+    ADMIN_PHONE: str = "+70000000000"
+    ADMIN_PASSWORD: str = "admin_change_me"
+    ADMIN_FIRST_NAME: str = "Повод"
+    ADMIN_LAST_NAME: str = "Команда"
+
     @property
     def admin_telegram_ids(self) -> set[int]:
         if not self.ADMIN_TELEGRAM_IDS:

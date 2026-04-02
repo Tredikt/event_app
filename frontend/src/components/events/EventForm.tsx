@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
-import { MapPin, Loader, Camera, X, Plus } from 'lucide-react'
+import { MapPin, Loader, Camera, X, Plus, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import type { Category } from '@/types'
+import { useAuthStore } from '@/stores/authStore'
 import type { CreateEventData } from '@/api/events'
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
@@ -21,11 +23,14 @@ interface Props {
 }
 
 export default function EventForm({ defaultValues, defaultImages = [], categories, onSubmit, submitLabel }: Props) {
+  const { user } = useAuthStore()
+  const isVerified = user?.verification_status === 'approved'
   const { register, handleSubmit, formState: { errors, isSubmitting }, setValue, getValues, control } = useForm<CreateEventData>({
     defaultValues: defaultValues || { capacity: 10 },
   })
 
   const isCatalog = useWatch({ control, name: 'is_tour' })
+  const isTemplate = useWatch({ control, name: 'is_template' })
   const priceValue = useWatch({ control, name: 'price' })
 
   // Separate date/time state
@@ -217,10 +222,10 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
         render={({ field }) => (
           <div>
             <p className="text-sm font-medium text-gray-700 mb-2">Тип мероприятия</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${user?.is_admin ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <button
                 type="button"
-                onClick={() => field.onChange(false)}
+                onClick={() => { field.onChange(false); setValue('is_template', false) }}
                 className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all ${
                   !field.value
                     ? 'border-blue-600 bg-blue-50'
@@ -239,22 +244,43 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
 
               <button
                 type="button"
-                onClick={() => field.onChange(true)}
+                onClick={() => { field.onChange(true); setValue('is_template', false) }}
                 className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all ${
-                  field.value
+                  field.value && !isTemplate
                     ? 'border-blue-600 bg-blue-50'
                     : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                 }`}
               >
                 <span className="text-2xl">🗂️</span>
                 <div>
-                  <p className={`text-sm font-semibold ${field.value ? 'text-blue-700' : 'text-gray-800'}`}>Тип мероприятия</p>
+                  <p className={`text-sm font-semibold ${field.value && !isTemplate ? 'text-blue-700' : 'text-gray-800'}`}>Тип мероприятия</p>
                   <p className="text-xs text-gray-500 mt-0.5 leading-snug">Опишите событие без даты. Позже можно создавать конкретные мероприятия</p>
                 </div>
-                <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${field.value ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
-                  {field.value && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${field.value && !isTemplate ? 'border-blue-600 bg-blue-600' : 'border-gray-300'}`}>
+                  {field.value && !isTemplate && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </div>
               </button>
+
+              {user?.is_admin && (
+                <button
+                  type="button"
+                  onClick={() => { field.onChange(true); setValue('is_template', true) }}
+                  className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all ${
+                    isTemplate
+                      ? 'border-purple-600 bg-purple-50'
+                      : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-2xl">✨</span>
+                  <div>
+                    <p className={`text-sm font-semibold ${isTemplate ? 'text-purple-700' : 'text-gray-800'}`}>Шаблон</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-snug">Любой пользователь сможет создать мероприятие по этому шаблону</p>
+                  </div>
+                  <div className={`mt-auto w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 self-end ${isTemplate ? 'border-purple-600 bg-purple-600' : 'border-gray-300'}`}>
+                    {isTemplate && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -436,17 +462,28 @@ export default function EventForm({ defaultValues, defaultImages = [], categorie
       )}
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">Стоимость участия (₽)</label>
+        <label className={`block text-sm font-medium mb-1.5 ${isVerified ? 'text-gray-700' : 'text-gray-400'}`}>Стоимость участия (₽)</label>
         <input
           type="number"
           min={0}
           step={1}
           {...register('price', { valueAsNumber: true, min: { value: 0, message: 'Минимум 0' } })}
-          className="input"
+          className="input disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-50"
           placeholder="0 — бесплатно"
+          disabled={!isVerified}
         />
         {errors.price && <p className="text-xs text-red-500 mt-1">{errors.price.message}</p>}
-        <p className="text-xs text-gray-400 mt-1">Оставьте пустым или 0 для бесплатного мероприятия</p>
+
+        {!isVerified && (
+          <div className="flex items-start gap-2.5 bg-yellow-50 border border-yellow-200 rounded-xl p-3 mt-2">
+            <ShieldCheck className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-yellow-800">
+              <span className="font-semibold">Только для верифицированных организаторов.</span>{' '}
+              Для создания платных мероприятий подтвердите юридическое лицо (ИП, ООО и др.).{' '}
+              <Link to="/verification" className="underline font-medium hover:text-yellow-900">Подать заявку →</Link>
+            </div>
+          </div>
+        )}
       </div>
 
       {priceValue != null && priceValue > 0 && (

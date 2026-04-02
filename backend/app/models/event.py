@@ -53,6 +53,7 @@ class Event(Base):
     status: Mapped[EventStatus] = mapped_column(SAEnum(EventStatus), default=EventStatus.active)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_tour: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    is_template: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     attendance_notified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     min_participants: Mapped[int | None] = mapped_column(Integer, nullable=True)
     price: Mapped[float | None] = mapped_column(Float, nullable=True)

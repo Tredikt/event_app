@@ -1,16 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Home, Newspaper, Plus, MessageSquare, User } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { authApi } from '@/api/auth'
 import clsx from 'clsx'
 import PullToRefresh from '@/components/ui/PullToRefresh'
+import AuthPromptModal from '@/components/ui/AuthPromptModal'
 
 export default function Layout() {
   const { isAuthenticated, user, updateUser } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const isChatPage = /^\/chats\/.+/.test(location.pathname)
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -20,6 +22,7 @@ export default function Layout() {
 
 
   return (
+    <>
     <div className="min-h-screen flex flex-col">
       <PullToRefresh />
       <main className="flex-1 pb-16">
@@ -56,7 +59,7 @@ export default function Layout() {
           {/* Centre FAB */}
           <div className="flex-1 flex flex-col items-center justify-center -mt-4">
             <button
-              onClick={() => isAuthenticated ? navigate('/events/new') : navigate('/login')}
+              onClick={() => isAuthenticated ? navigate('/events/new') : setShowAuthPrompt(true)}
               className="w-12 h-12 rounded-full bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white flex items-center justify-center shadow-md transition-colors"
             >
               <Plus className="w-6 h-6" />
@@ -71,7 +74,7 @@ export default function Layout() {
                   ? (isActive ? 'text-blue-700' : 'text-gray-400')
                   : 'text-gray-200 pointer-events-none')
             }
-            onClick={(e) => { if (!isAuthenticated) { e.preventDefault(); navigate('/login') } }}
+            onClick={(e) => { if (!isAuthenticated) { e.preventDefault(); setShowAuthPrompt(true) } }}
           >
             <MessageSquare className="w-5 h-5" />
             <span>Чаты</span>
@@ -85,7 +88,7 @@ export default function Layout() {
                   ? (isActive ? 'text-blue-700' : 'text-gray-400')
                   : 'text-gray-400')
             }
-            onClick={(e) => { if (!isAuthenticated) { e.preventDefault(); navigate('/login') } }}
+            onClick={(e) => { if (!isAuthenticated) { e.preventDefault(); setShowAuthPrompt(true) } }}
           >
             {isAuthenticated && user?.avatar_url ? (
               <>
@@ -108,5 +111,10 @@ export default function Layout() {
         </div>
       </nav>
     </div>
+
+    {showAuthPrompt && (
+      <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />
+    )}
+    </>
   )
 }

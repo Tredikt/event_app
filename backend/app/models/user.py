@@ -3,7 +3,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, Enum as SAEnum, Float, String
+from sqlalchemy import BigInteger, Boolean, Enum as SAEnum, Float, String, Text, Integer, ForeignKey
 from app.core.utils import moscow_now
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,27 @@ class GenderEnum(str, enum.Enum):
     male = "male"
     female = "female"
     other = "other"
+
+
+class VerificationStatus(str, enum.Enum):
+    none = "none"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class VerificationRequest(Base):
+    __tablename__ = "verification_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    legal_type: Mapped[str] = mapped_column(String(50))   # ИП, ООО, АО, НКО, ...
+    legal_name: Mapped[str] = mapped_column(String(500))
+    inn: Mapped[str] = mapped_column(String(20))
+    contact_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=moscow_now)
+
+    user: Mapped["User"] = relationship("User", back_populates="verification_request")
 
 
 class User(Base):
@@ -33,6 +54,11 @@ class User(Base):
     bio: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    verification_status: Mapped[VerificationStatus] = mapped_column(
+        SAEnum(VerificationStatus, name="verificationstatus"),
+        default=VerificationStatus.none,
+        server_default="none",
+    )
     rating: Mapped[float] = mapped_column(Float, default=5.0, server_default="5.0")
     created_at: Mapped[datetime] = mapped_column(default=moscow_now)
 
@@ -50,4 +76,7 @@ class User(Base):
     )
     followers: Mapped[list["OrganizerSubscription"]] = relationship(
         "OrganizerSubscription", foreign_keys="OrganizerSubscription.organizer_id", back_populates="organizer"
+    )
+    verification_request: Mapped["VerificationRequest | None"] = relationship(
+        "VerificationRequest", back_populates="user", uselist=False
     )

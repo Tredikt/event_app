@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare, Download } from 'lucide-react'
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
+import { Calendar, MapPin, Bell, ArrowLeft, Edit, Share2, CheckCircle, UserPlus, UserMinus, Navigation, Loader2, X, ClipboardList, Trash2, MessageSquare, Download, Flag, ShieldCheck } from 'lucide-react'
 import { chatApi } from '@/api/chat'
 import toast from 'react-hot-toast'
 import { fmtDate, isMoscowPast } from '@/utils/date'
@@ -10,11 +10,14 @@ import type { AttendanceParticipant, Event, Participant /*, Review */ } from '@/
 import EventMap from '@/components/map/EventMap'
 import ClientOnly from '@/components/ClientOnly'
 import { useAuthStore } from '@/stores/authStore'
+import AuthPromptModal from '@/components/ui/AuthPromptModal'
+import ReportModal from '@/components/ui/ReportModal'
 import clsx from 'clsx'
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, isAuthenticated } = useAuthStore()
   const [event, setEvent] = useState<Event | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -46,6 +49,8 @@ export default function EventDetailPage() {
   // const [reviewLoading, setReviewLoading] = useState(false)
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null)
   const [paymentModal, setPaymentModal] = useState(false)
+  const [authPrompt, setAuthPrompt] = useState(false)
+  const [reportModal, setReportModal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -149,7 +154,7 @@ export default function EventDetailPage() {
   }
 
   const handleJoin = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
+    if (!isAuthenticated) { setAuthPrompt(true); return }
     if (!user?.telegram_id) {
       toast.error('Для участия необходимо привязать Telegram')
       navigate('/telegram/connect')
@@ -186,7 +191,7 @@ export default function EventDetailPage() {
   }
 
   const handleSubmitPaymentApplication = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
+    if (!isAuthenticated) { setAuthPrompt(true); return }
     setActionLoading(true)
     try {
       await eventsApi.join(event.id)
@@ -237,7 +242,7 @@ export default function EventDetailPage() {
   }
 
   const handleSubscribe = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
+    if (!isAuthenticated) { setAuthPrompt(true); return }
     setActionLoading(true)
     try {
       if (subscribed) {
@@ -259,7 +264,7 @@ export default function EventDetailPage() {
   }
 
   const handleFollow = async () => {
-    if (!isAuthenticated) { navigate('/login'); return }
+    if (!isAuthenticated) { setAuthPrompt(true); return }
     setActionLoading(true)
     try {
       if (following) {
@@ -404,7 +409,10 @@ export default function EventDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+      <button
+        onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)}
+        className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors"
+      >
         <ArrowLeft className="w-4 h-4" />Назад
       </button>
 
@@ -582,28 +590,36 @@ export default function EventDetailPage() {
                 </button>
               )}
 
-              {/* Contact organizer — shown when joined */}
-              {!isOrganizer && isAuthenticated && joined && (
-                <div className="flex gap-2 mb-4">
+              {/* Contact organizer — always shown for non-organizers */}
+              {!isOrganizer && isAuthenticated && (
+                <div className="flex flex-col gap-2 mb-4">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { data } = await chatApi.openChat(event.organizer.id)
+                          navigate(`/chats/${data.chat_id}`)
+                        } catch {
+                          toast.error('Ошибка открытия чата')
+                        }
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Написать организатору
+                    </button>
+                    <button
+                      onClick={() => navigate(`/users/${event.organizer.id}`)}
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      Профиль
+                    </button>
+                  </div>
                   <button
-                    onClick={async () => {
-                      try {
-                        const { data } = await chatApi.openChat(event.organizer.id)
-                        navigate(`/chats/${data.chat_id}`)
-                      } catch {
-                        toast.error('Ошибка открытия чата')
-                      }
-                    }}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors"
+                    onClick={() => toast('В разработке')}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    Написать организатору
-                  </button>
-                  <button
-                    onClick={() => navigate(`/users/${event.organizer.id}`)}
-                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-colors"
-                  >
-                    Профиль
+                    Собрать людей на мероприятие
                   </button>
                 </div>
               )}
@@ -623,14 +639,19 @@ export default function EventDetailPage() {
                   </div>
                 )}
                 <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-sm text-gray-600">Осталось мест</span>
-                  <span className={clsx('text-sm font-semibold', event.is_full ? 'text-red-500' : 'text-gray-900')}>
-                    {event.is_full ? 'Нет мест' : `${event.capacity - event.participants_count}/${event.capacity}`}
+                  <span className="text-sm text-gray-600">Участники</span>
+                  <span className={clsx('text-sm font-semibold', event.is_full ? 'text-red-500' : (event.participants_count / event.capacity) >= 0.5 ? 'text-orange-500' : 'text-blue-700')}>
+                    {(() => {
+                      const c = event.participants_count, cap = event.capacity, full = event.is_full
+                      const left = cap - c
+                      if (full) return 'Мест нет'
+                      if (c === 0) return 'Будь первым!'
+                      if (c / cap >= 0.9) return `${c} идут — осталось ${left} ${left === 1 ? 'место' : 'мест'}`
+                      if (c / cap >= 0.5) return `${c} идут — ещё ${left}`
+                      if (c <= 5) return `${c} ${c === 1 ? 'идёт' : 'идут'} — присоединяйся`
+                      return `${c} идут — ещё ${left} мест`
+                    })()}
                   </span>
-                </div>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="text-sm text-gray-600">Пойдут</span>
-                  <span className="text-sm font-semibold text-gray-900">{event.participants_count}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-sm text-gray-600">Интересуются</span>
@@ -638,9 +659,17 @@ export default function EventDetailPage() {
                 </div>
                 <div className="flex items-center justify-between px-4 py-3">
                   <span className="text-sm text-gray-600">Стоимость участия</span>
-                  <span className={clsx('text-sm font-semibold', event.price ? 'text-gray-900' : 'text-green-600')}>
-                    {event.price ? `${event.price.toLocaleString('ru')} ₽` : 'Бесплатно'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {event.price != null && event.price > 0 && (
+                      <span title="Только верифицированные организаторы могут проводить платные мероприятия" className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Верифицировано
+                      </span>
+                    )}
+                    <span className={clsx('text-sm font-semibold', event.price ? 'text-gray-900' : 'text-green-600')}>
+                      {event.price ? `${event.price.toLocaleString('ru')} ₽` : 'Бесплатно'}
+                    </span>
+                  </div>
                 </div>
                 {event.min_participants && (
                   <div className="flex items-center justify-between px-4 py-3">
@@ -820,14 +849,31 @@ export default function EventDetailPage() {
               </button>
             )}
 
+            {!isOrganizer && isAuthenticated && (
+              <div className="pt-1 border-t border-gray-100">
+                <button
+                  onClick={() => setReportModal(true)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <Flag className="w-3 h-3" />
+                  Пожаловаться на организатора
+                </button>
+              </div>
+            )}
 
           </div>
 
           {/* Instantiate catalog item as a real event */}
-          {isOrganizer && event.is_tour && (
+          {event.is_tour && (isOrganizer || event.is_template) && isAuthenticated && (
             <div className="card p-4">
-              <h3 className="font-semibold text-gray-900 mb-1">Создать мероприятие из типа</h3>
-              <p className="text-xs text-gray-500 mb-3">Выберите дату — появится разовое мероприятие в ленте с данными этого типа мероприятия.</p>
+              <h3 className="font-semibold text-gray-900 mb-1">
+                {event.is_template ? 'Создать мероприятие по шаблону' : 'Создать мероприятие из типа'}
+              </h3>
+              <p className="text-xs text-gray-500 mb-3">
+                {event.is_template
+                  ? 'Выберите дату — мероприятие появится в ленте от вашего имени.'
+                  : 'Выберите дату — появится разовое мероприятие в ленте с данными этого типа мероприятия.'}
+              </p>
               <div className="flex gap-2">
                 <input
                   type="datetime-local"
@@ -1164,6 +1210,21 @@ export default function EventDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {authPrompt && (
+        <AuthPromptModal
+          onClose={() => setAuthPrompt(false)}
+          message="Чтобы записаться на мероприятие, необходимо войти в аккаунт."
+        />
+      )}
+
+      {reportModal && event && (
+        <ReportModal
+          targetUserId={event.organizer.id}
+          targetName={event.organizer.first_name}
+          onClose={() => setReportModal(false)}
+        />
       )}
     </div>
   )

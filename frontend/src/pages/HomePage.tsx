@@ -27,30 +27,35 @@ export default function HomePage() {
   const [isFree, setIsFree] = useState<boolean | null>(null)
   const [search, setSearch] = useState('')
   const [onlyAvailable] = useState(false)
+  const [selectedCity, setSelectedCity] = useState<string | null>(null)
   // Draft filters (inside modal, not yet applied)
   const [draftCategory, setDraftCategory] = useState<number | null>(null)
   const [draftIsFree, setDraftIsFree] = useState<boolean | null>(null)
+  const [draftCity, setDraftCity] = useState<string | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
   const { isAuthenticated, user } = useAuthStore()
   const navigate = useNavigate()
 
-  const activeFilterCount = (selectedCategory !== null ? 1 : 0) + (isFree !== null ? 1 : 0)
+  const activeFilterCount = (selectedCategory !== null ? 1 : 0) + (isFree !== null ? 1 : 0) + (selectedCity !== null ? 1 : 0)
 
   const openFilters = () => {
     setDraftCategory(selectedCategory)
     setDraftIsFree(isFree)
+    setDraftCity(selectedCity)
     setFilterOpen(true)
   }
 
   const applyFilters = () => {
     setSelectedCategory(draftCategory)
     setIsFree(draftIsFree)
+    setSelectedCity(draftCity)
     setFilterOpen(false)
   }
 
   const resetFilters = () => {
     setDraftCategory(null)
     setDraftIsFree(null)
+    setDraftCity(null)
   }
 
   useEffect(() => {
@@ -65,7 +70,7 @@ export default function HomePage() {
         search: search || undefined,
         only_available: onlyAvailable,
         is_free: isFree ?? undefined,
-        city: user?.city ?? undefined,
+        city: selectedCity ?? user?.city ?? undefined,
       })
       setEvents(data)
     } catch {
@@ -73,7 +78,7 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedCategory, search, onlyAvailable, isFree, user?.city])
+  }, [selectedCategory, search, onlyAvailable, isFree, selectedCity, user?.city])
 
   const fetchFormats = useCallback(async () => {
     setLoading(true)
@@ -213,6 +218,25 @@ export default function HomePage() {
 
             {/* Scrollable content */}
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+              {/* Город */}
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Город</p>
+                <div className="flex flex-wrap gap-2">
+                  {[null, 'Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань', 'Нижний Новгород', 'Красноярск', 'Самара', 'Уфа', 'Ростов-на-Дону', 'Омск', 'Краснодар', 'Воронеж', 'Пермь', 'Волгоград', 'Саратов', 'Тюмень', 'Тольятти', 'Ижевск', 'Барнаул', 'Ульяновск', 'Иркутск', 'Хабаровск', 'Владивосток', 'Ярославль', 'Махачкала', 'Томск', 'Оренбург', 'Кемерово', 'Новокузнецк', 'Рязань', 'Астрахань', 'Набережные Челны', 'Пенза', 'Липецк', 'Тула', 'Киров', 'Чебоксары', 'Калининград', 'Брянск', 'Курск', 'Иваново', 'Магнитогорск', 'Тверь', 'Архангельск', 'Сочи', 'Сургут', 'Белгород', 'Владимир'].map((city) => (
+                    <button
+                      key={String(city)}
+                      onClick={() => setDraftCity(city)}
+                      className={clsx(
+                        'px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                        draftCity === city ? 'bg-blue-700 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      )}
+                    >
+                      {city ?? 'Все города'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Цена */}
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">Стоимость</p>

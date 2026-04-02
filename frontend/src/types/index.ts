@@ -1,4 +1,5 @@
 export type Gender = 'male' | 'female' | 'other'
+export type VerificationStatus = 'none' | 'pending' | 'approved' | 'rejected'
 export type EventStatus = 'active' | 'cancelled' | 'completed'
 export type ParticipantStatus = 'registered' | 'cancelled' | 'pending_payment' | 'payment_submitted'
 
@@ -26,6 +27,7 @@ export interface UserProfile extends UserPublic {
   telegram_id: number | null
   is_admin: boolean
   city: string | null
+  verification_status: VerificationStatus
   created_at: string
 }
 
@@ -52,6 +54,7 @@ export interface Event {
   images: EventImage[]
   subscriptions_count: number
   is_tour: boolean
+  is_template: boolean
   category: Category
   organizer: UserPublic
   created_at: string
@@ -73,6 +76,7 @@ export interface EventList {
   status: EventStatus
   image_url: string | null
   is_tour: boolean
+  is_template: boolean
   category: Category
   organizer: UserPublic
   is_full: boolean

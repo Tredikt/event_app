@@ -40,6 +40,7 @@ class EventCreate(BaseModel):
     longitude: Optional[float] = None
     category_id: int
     is_tour: bool = False
+    is_template: bool = False
     price: Optional[float] = None
     payment_details: Optional[str] = None
 
@@ -96,6 +97,7 @@ class EventOut(BaseModel):
     images: list[EventImageOut] = []
     subscriptions_count: int = 0
     is_tour: bool
+    is_template: bool = False
     category: CategoryOut
     organizer: UserPublic
     created_at: datetime
@@ -119,6 +121,7 @@ class EventListOut(BaseModel):
     status: EventStatus
     image_url: Optional[str] = None
     is_tour: bool
+    is_template: bool = False
     category: CategoryOut
     organizer: UserPublic
     is_full: bool

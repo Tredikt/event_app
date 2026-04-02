@@ -5,7 +5,7 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, field_validator
 
-from app.models.user import GenderEnum
+from app.models.user import GenderEnum, VerificationStatus
 
 
 class UserRegister(BaseModel):
@@ -69,6 +69,24 @@ class UserProfile(UserPublic):
     is_admin: bool = False
     city: Optional[str] = None
     bio: Optional[str] = None
+    verification_status: VerificationStatus = VerificationStatus.none
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VerificationRequestIn(BaseModel):
+    legal_type: str
+    legal_name: str
+    inn: str
+    contact_info: Optional[str] = None
+
+
+class VerificationRequestOut(BaseModel):
+    legal_type: str
+    legal_name: str
+    inn: str
+    contact_info: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

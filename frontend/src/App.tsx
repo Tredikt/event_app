@@ -21,6 +21,7 @@ const OrganizerPage       = lazy(() => import('@/pages/OrganizerPage'))
 const ChatsPage           = lazy(() => import('@/pages/ChatsPage'))
 const ChatPage            = lazy(() => import('@/pages/ChatPage'))
 const VlogPage            = lazy(() => import('@/pages/VlogPage'))
+const VerificationPage    = lazy(() => import('@/pages/VerificationPage'))
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -57,9 +58,7 @@ export default function App() {
           <Route path="/events/:id" element={<EventDetailPage />} />
           <Route path="/users/:id" element={<Suspense fallback={null}><OrganizerPage /></Suspense>} />
           <Route path="/events/new" element={
-            <PrivateRoute>
-              <Suspense fallback={null}><CreateEventPage /></Suspense>
-            </PrivateRoute>
+            <Suspense fallback={null}><CreateEventPage /></Suspense>
           } />
           <Route path="/events/:id/edit" element={
             <PrivateRoute>
@@ -67,11 +66,14 @@ export default function App() {
             </PrivateRoute>
           } />
           <Route path="/profile" element={
-            <PrivateRoute>
-              <Suspense fallback={null}><ProfilePage /></Suspense>
-            </PrivateRoute>
+            <Suspense fallback={null}><ProfilePage /></Suspense>
           } />
           <Route path="/my-events" element={<Navigate to="/profile" replace />} />
+          <Route path="/verification" element={
+            <PrivateRoute>
+              <Suspense fallback={null}><VerificationPage /></Suspense>
+            </PrivateRoute>
+          } />
           <Route path="/vlog" element={
             <PrivateRoute>
               <Suspense fallback={null}><VlogPage /></Suspense>

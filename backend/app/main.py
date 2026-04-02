@@ -90,6 +90,30 @@ async def seed_categories():
         logger.info("Categories synced")
 
 
+async def seed_admin():
+    """Ensure the admin account exists."""
+    from app.core.database import AsyncSessionLocal
+    from sqlalchemy import select
+    from app.models.user import User, GenderEnum
+    from app.core.security import get_password_hash
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(User).where(User.phone == settings.ADMIN_PHONE))
+        if result.scalar_one_or_none():
+            return
+        admin = User(
+            first_name=settings.ADMIN_FIRST_NAME,
+            last_name=settings.ADMIN_LAST_NAME,
+            phone=settings.ADMIN_PHONE,
+            hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
+            gender=GenderEnum.other,
+            is_admin=True,
+        )
+        db.add(admin)
+        await db.commit()
+        logger.info("Admin account created: %s", settings.ADMIN_PHONE)
+
+
 async def migrate_schema():
     """Apply incremental schema changes that create_all doesn't handle."""
     async with engine.begin() as conn:
@@ -200,6 +224,43 @@ async def migrate_schema():
             ALTER TABLE chat_messages
                 ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)
         """))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(2000)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIMESTAMP"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id SERIAL PRIMARY KEY,
+                reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reported_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reason VARCHAR(500) NOT NULL,
+                comment TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """))
+        # Verification
+        await conn.execute(text(
+            "DO $$ BEGIN CREATE TYPE verificationstatus AS ENUM ('none','pending','approved','rejected'); EXCEPTION WHEN duplicate_object THEN null; END $$;"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_status verificationstatus NOT NULL DEFAULT 'none'"
+        ))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS verification_requests (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                legal_type VARCHAR(50) NOT NULL,
+                legal_name VARCHAR(500) NOT NULL,
+                inn VARCHAR(20) NOT NULL,
+                contact_info TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text(
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS is_template BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
 
 
 @asynccontextmanager
@@ -208,6 +269,7 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     await migrate_schema()
     await seed_categories()
+    await seed_admin()
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "avatars"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "events"), exist_ok=True)
 

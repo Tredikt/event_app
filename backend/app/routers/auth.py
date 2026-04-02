@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.user import User
+from app.models.user import User, VerificationRequest, VerificationStatus
 from app.schemas.user import (
     TelegramConnect,
     Token,
@@ -17,6 +17,8 @@ from app.schemas.user import (
     UserProfile,
     UserRegister,
     UserUpdate,
+    VerificationRequestIn,
+    VerificationRequestOut,
 )
 from app.services.file_service import save_avatar
 
@@ -103,6 +105,46 @@ async def upload_avatar(
     await db.commit()
     await db.refresh(current_user)
     return UserProfile.model_validate(current_user)
+
+
+@router.post("/me/verification", status_code=status.HTTP_201_CREATED)
+async def submit_verification(
+    data: VerificationRequestIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Submit legal entity verification request."""
+    if current_user.verification_status == VerificationStatus.approved:
+        raise HTTPException(status_code=400, detail="Верификация уже подтверждена")
+    # Upsert: delete old request if rejected/pending
+    existing = await db.execute(
+        select(VerificationRequest).where(VerificationRequest.user_id == current_user.id)
+    )
+    old = existing.scalar_one_or_none()
+    if old:
+        await db.delete(old)
+    req = VerificationRequest(
+        user_id=current_user.id,
+        legal_type=data.legal_type,
+        legal_name=data.legal_name,
+        inn=data.inn,
+        contact_info=data.contact_info,
+    )
+    current_user.verification_status = VerificationStatus.pending
+    db.add(req)
+    await db.commit()
+    return {"status": "pending"}
+
+
+@router.get("/me/verification", response_model=VerificationRequestOut | None)
+async def get_verification(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(VerificationRequest).where(VerificationRequest.user_id == current_user.id)
+    )
+    return result.scalar_one_or_none()
 
 
 @router.post("/me/telegram", response_model=UserProfile)

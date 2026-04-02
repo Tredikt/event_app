@@ -21,10 +21,11 @@ interface EventMapProps {
 
 const EMPTY_EVENTS: EventList[] = []
 
-function createPinSvg(color: string): string {
-  const svg = `<svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.716 0 0 6.716 0 15c0 10.5 15 27 15 27S30 25.5 30 15C30 6.716 23.284 0 15 0z" fill="${color}"/>
-    <circle cx="15" cy="15" r="6" fill="white"/>
+function createEmojiPinSvg(color: string, emoji: string): string {
+  const svg = `<svg width="40" height="52" viewBox="0 0 40 52" xmlns="http://www.w3.org/2000/svg">
+    <path d="M20 0C8.954 0 0 8.954 0 20c0 14 20 32 20 32S40 34 40 20C40 8.954 31.046 0 20 0z" fill="${color}"/>
+    <circle cx="20" cy="20" r="15" fill="white"/>
+    <text x="20" y="26" text-anchor="middle" font-size="16">${emoji}</text>
   </svg>`
   return 'data:image/svg+xml,' + encodeURIComponent(svg)
 }
@@ -133,6 +134,7 @@ export default function EventMap({
       .filter((e) => e.latitude && e.longitude)
       .forEach((event) => {
         const color = event.is_full ? '#9CA3AF' : event.category.color
+        const emoji = event.category.icon
         const dateStr = event.date ? fmtDate(event.date, 'd MMM, HH:mm') : ''
         const fullBadge = event.is_full
           ? ' • <span style="color:#EF4444;">Мест нет</span>'
@@ -154,9 +156,9 @@ export default function EventMap({
           { balloonContent },
           {
             iconLayout: 'default#image',
-            iconImageHref: createPinSvg(color),
-            iconImageSize: [30, 42],
-            iconImageOffset: [-15, -42],
+            iconImageHref: createEmojiPinSvg(color, emoji),
+            iconImageSize: [40, 52],
+            iconImageOffset: [-20, -52],
             hideIconOnBalloonOpen: false,
           }
         )

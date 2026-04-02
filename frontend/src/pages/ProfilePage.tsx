@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, /* Trophy, X, */ Users, Calendar, BookOpen } from 'lucide-react'
+import AuthPromptModal from '@/components/ui/AuthPromptModal'
+import { Camera, Send, Loader, CheckCircle, Bell, ChevronRight, LogOut, /* Trophy, X, */ Users, Calendar, BookOpen, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { authApi } from '@/api/auth'
@@ -15,7 +16,7 @@ import EventCard from '@/components/events/EventCard'
 type MyTab = 'joined' | 'organized' | null
 
 export default function ProfilePage() {
-  const { user, updateUser, logout } = useAuthStore()
+  const { user, updateUser, logout, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const [telegramLink, setTelegramLink] = useState('')
   const [loadingTg, setLoadingTg] = useState(false)
@@ -89,6 +90,15 @@ export default function ProfilePage() {
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <AuthPromptModal
+        onClose={() => navigate('/')}
+        message="Войдите или зарегистрируйтесь, чтобы увидеть профиль."
+      />
+    )
   }
 
   if (!user) return null
@@ -203,15 +213,38 @@ export default function ProfilePage() {
       {/* Menu list */}
       <div className="card overflow-hidden divide-y divide-gray-100">
 
-        {/* Vlog */}
+        {/* Verification */}
         <Link
-          to="/vlog"
+          to="/verification"
+          className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
+        >
+          <ShieldCheck className={`w-5 h-5 flex-shrink-0 ${
+            user.verification_status === 'approved' ? 'text-green-500' :
+            user.verification_status === 'pending' ? 'text-yellow-500' :
+            user.verification_status === 'rejected' ? 'text-red-400' :
+            'text-gray-300'
+          }`} />
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium text-gray-800">Верификация организатора</span>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {user.verification_status === 'approved' ? 'Подтверждена' :
+               user.verification_status === 'pending' ? 'На рассмотрении' :
+               user.verification_status === 'rejected' ? 'Отклонена' :
+               'Для платных мероприятий'}
+            </p>
+          </div>
+          <ChevronRight className="w-4 h-4 text-gray-400" />
+        </Link>
+
+        {/* Vlog */}
+        <button
+          onClick={() => toast('В разработке')}
           className="w-full flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors"
         >
           <BookOpen className="w-5 h-5 text-gray-300 flex-shrink-0" />
           <span className="flex-1 text-sm font-medium text-gray-800">Влог</span>
           <ChevronRight className="w-4 h-4 text-gray-400" />
-        </Link>
+        </button>
 
         {/* My Events */}
         <button

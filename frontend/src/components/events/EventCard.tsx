@@ -17,6 +17,17 @@ function shortAddress(address: string): string {
   return parts.slice(0, 2).join(', ')
 }
 
+function participantsLabel(count: number, capacity: number, isFull: boolean): string {
+  if (isFull) return 'Мест нет'
+  const fill = count / capacity
+  if (count === 0) return 'Будь первым!'
+  const left = capacity - count
+  if (fill >= 0.9) return `Почти всё занято — ${left} ${left === 1 ? 'место' : 'мест'}`
+  if (fill >= 0.5) return `${count} идут — ещё ${left}`
+  if (count <= 5) return `${count} ${count === 1 ? 'идёт' : 'идут'} — присоединяйся`
+  return `${count} идут — ещё ${left} мест`
+}
+
 export default function EventCard({ event, compact = false, wide = false }: Props) {
   const fillPercent = (event.participants_count / event.capacity) * 100
   const dateStr = event.date ? fmtDate(event.date, 'd MMM, HH:mm') : null
@@ -60,12 +71,17 @@ export default function EventCard({ event, compact = false, wide = false }: Prop
           </span>
         </div>
 
-        {/* Full badge */}
-        {event.is_full && (
-          <div className="absolute top-2 right-2 badge bg-gray-900/70 text-white text-xs">
-            Мест нет
-          </div>
-        )}
+        {/* Price / Full badge */}
+        <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+          {event.price != null && event.price > 0 && (
+            <span className="badge bg-blue-700 text-white text-xs font-semibold shadow-sm">
+              {event.price.toLocaleString('ru')} ₽
+            </span>
+          )}
+          {event.is_full && (
+            <span className="badge bg-gray-900/70 text-white text-xs">Мест нет</span>
+          )}
+        </div>
 
         {/* Date chip — hidden for catalog items */}
         {dateStr && !event.is_tour && (
@@ -91,13 +107,10 @@ export default function EventCard({ event, compact = false, wide = false }: Prop
 
         {/* Footer: participants + progress */}
         <div className="mt-auto pt-1">
-          <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1">
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {event.participants_count} / {event.capacity}
-            </span>
-            <span className={clsx('font-medium', event.is_full ? 'text-red-500' : 'text-blue-700')}>
-              {event.is_full ? 'Нет мест' : `${Math.round(fillPercent)}%`}
+          <div className="flex items-center gap-1 text-[11px] mb-1">
+            <Users className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <span className={clsx('font-medium', event.is_full ? 'text-red-500' : fillPercent >= 50 ? 'text-orange-500' : 'text-blue-700')}>
+              {participantsLabel(event.participants_count, event.capacity, event.is_full)}
             </span>
           </div>
           <div className="h-1 bg-gray-100 rounded-full overflow-hidden">

@@ -26,6 +26,7 @@ export interface CreateEventData {
   longitude?: number
   category_id: number
   is_tour?: boolean
+  is_template?: boolean
   price?: number | null
   payment_details?: string | null
 }

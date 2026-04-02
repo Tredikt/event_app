@@ -81,6 +81,7 @@ async def _cancel_underfilled_events():
             .where(Event.status == EventStatus.active)
             .where(Event.is_tour == False)  # noqa: E712
             .where(Event.min_participants.is_not(None))
+            .where(Event.min_participants > 0)
             .where(Event.date >= window_start)
             .where(Event.date <= window_end)
         )

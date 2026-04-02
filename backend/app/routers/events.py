@@ -123,9 +123,20 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    from app.models.user import VerificationStatus
     category = await db.get(EventCategory, data.category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Категория не найдена")
+
+    if data.price and data.price > 0:
+        if current_user.verification_status != VerificationStatus.approved:
+            raise HTTPException(
+                status_code=403,
+                detail="Создание платных мероприятий доступно только верифицированным организаторам (ИП/ООО). Подайте заявку на верификацию в профиле."
+            )
+
+    if data.is_template and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Только администраторы могут создавать шаблоны")
 
     event = Event(
         **data.model_dump(),
@@ -181,7 +192,8 @@ async def instantiate_catalog_event(
         raise HTTPException(status_code=404, detail="Мероприятие не найдено")
     if not source.is_tour:
         raise HTTPException(status_code=400, detail="Только каталожные позиции можно использовать как шаблон")
-    if source.organizer_id != current_user.id:
+    # Templates (admin-created) can be instantiated by anyone; regular tours only by their organizer
+    if not source.is_template and source.organizer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Нет прав")
 
     date_str = body.get("date")
